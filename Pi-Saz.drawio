@@ -1381,7 +1381,7 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="MWCP71DUNm_zVWNksijG-32" value="finalize order" style="shape=rhombus;perimeter=rhombusPerimeter;whiteSpace=wrap;html=1;align=center;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;" vertex="1" parent="1">
+        <mxCell id="MWCP71DUNm_zVWNksijG-32" value="place payment" style="shape=rhombus;perimeter=rhombusPerimeter;whiteSpace=wrap;html=1;align=center;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;" vertex="1" parent="1">
           <mxGeometry x="1240" y="419.9977777777776" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="MWCP71DUNm_zVWNksijG-35" value="" style="endArrow=none;html=1;rounded=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="MWCP71DUNm_zVWNksijG-32" target="EZ4wKox0lvYlgoozN4nP-57">
