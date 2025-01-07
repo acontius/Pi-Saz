@@ -60,14 +60,14 @@ The system enforces specific compatibility rules, such as:
 Getting Started
 Prerequisites
 
-    Database Management System (DBMS): Ensure a compatible DBMS is installed (e.g., MySQL, PostgreSQL).
-    Development Environment: Python or similar for backend development.
+    Database Management System (DBMS): Ensure a compatible DBMS is installed (PostgreSQL).
+    Development Environment: Django for backend development and React(if possible) for frontend developement.
 
 Installation
 
     Clone the repository:
 
-    git clone https://github.com/yourusername/pisaz.git
+    git clone https://github.com/acontius/pisaz.git
 
     Set up the database using provided schema files.
     Configure the environment variables for DB credentials.
@@ -90,7 +90,7 @@ We welcome contributions to improve Pisaz. To contribute:
 
 License
 
-This project is licensed under the MIT License.
+This project is licensed under the BASU License.
 Acknowledgments
 
-Special thanks to the course instructor, Dr. Morteza Yusef Sanati, and teaching assistants for their guidance.
+Special thanks to the course instructor, Dr. Morteza Yusef Sanaati, and teaching assistants for their guidance.
