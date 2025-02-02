@@ -1,3 +1,4 @@
+-- referal handling for all levels of inviters 
 CREATE OR REPLACE FUNCTION Calc_Referal_DISCOUNT(new_user_id INT, referrer_id INT) 
 RETURNS VOID AS $$
 DECLARE
@@ -33,6 +34,9 @@ BEGIN
         VALUES (discount_code_id, current_id);
 
         SELECT Referrer INTO current_id FROM REFERS WHERE Refree = current_id;
+        
+        IF NEW.Referal_code = NEW.ID THEN RAISE EXCEPTION 'A user cannot refer themselves';
+        END IF;
 
         EXIT WHEN current_id IS NULL;
 
@@ -41,3 +45,19 @@ BEGIN
 END;
 $$ 
 LANGUAGE plpgsql;
+
+-- accepted test case is :
+-- INSERT INTO CLIENT (Phone_number, First_name, Last_name, Referal_code)
+-- VALUES ('09123456789', 'Ali', 'Ahmadi', NULL);
+
+
+--failed testcase are :
+-- INSERT INTO CLIENT (Phone_number, First_name, Last_name, Referal_code)
+-- VALUES ('09351234567', 'Test', 'User', 9999);
+
+-- INSERT INTO CLIENT (Phone_number, First_name, Last_name, Referal_code)
+-- VALUES ('09129999999', 'Duplicate', 'Test', 2);
+
+-- Self-referral (should fail)
+-- INSERT INTO CLIENT (Phone_number, First_name, Last_name, Referal_code)
+-- VALUES ('09127777777', 'Self', 'Loop', 6);
