@@ -1,3 +1,6 @@
+-- CREATE DATABASE psaz;
+-- \c psaz; PSQL INTERNAL COMMNAD
+
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS PRODUCTS (
@@ -349,6 +352,7 @@ COMMIT;
 
 -- if you accidentally used the command abow :
     -- DROP SCHEMA public CASCADE;  --ATTENTION : DONT RUN THIS COMMAND UNTILL YOU ARE SURE !!! 
--- use : cretae schema if not exists public; then use : psql -U userName -d databaseName -f psaz.sql to compile it !
+-- use : create schema if not exists public; then use : psql -U userName -d databaseName -f psaz.sql to compile it !
 
 -- SELECT table_name from information_schema.tables where table_schema = 'public'; 
+
