@@ -122,4 +122,55 @@ FOR EACH ROW
 EXECUTE FUNCTION Cart_count_limits() ;
 
 
+-- Users Cannot Add Out-of-Stock Products to Their Shopping Cart
+CREATE OR REPLACE FUNCTION Prevent_Out_stock() RETURNS TRIGGER AS $$
+DECLARE
+    quantity INT;
+
+BEGIN 
+    -- TG_OP is PSQL internal function that tells us which operationg is calling the trigger 
+    IF NEW.Product_ID IS DISTINCT FROM OLD.Product_ID OR TG_OP = 'INSERT' THEN
     
+    SELECT stock_count INTO quantity
+    FROM PRODUCTS
+    WHERE ID = NEW.ID;
+    
+        IF quantity <= 0 THEN 
+            RAISE EXCEPTION 'ITEMS THAT ARE OUT OF STOCK CANT TAKE ANY ACTIONS TILL REFILL';
+        END IF;
+    END IF;
+        RETURN NEW;
+
+    END;
+$$ 
+LANGUAGE plpgsql;
+
+CREATE TRIGGER stock_controller
+BEFORE INSERT OR UPDATE ON ADDED_TO
+FOR EACH ROW 
+EXECUTE FUNCTION Prevent_Out_stock();
+
+
+CREATE OR REPLACE FUNCTION Update_the_quantity_on_cart_change() RETURNS TRIGGER AS $$
+
+BEGIN 
+    IF TG_OP = "INSERT" THEN 
+        UPDATE PRODUCTS
+        SET stock_count = stock_count - 1
+        WHERE id = NEW.Product_ID;
+
+    ELSIF TG_OP = 'DELETE' THEN 
+        UPDATE PRODUCTS
+        SET stock_count = stock_count + 1
+        WHERE id = OLD.Product_ID;
+    END IF;
+
+    RETURN NULL;
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER Update_quantity 
+AFTER INSERT OR DELETE ON ADDED_TO 
+FOR EACH ROW
+EXECUTE FUNCTION Update_the_quantity_on_cart_change();
