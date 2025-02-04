@@ -90,3 +90,36 @@ CREATE TRIGGER Locked_transactions_limitions
 BEFORE INSERT ON ISSUED_FOR
 FOR EACH ROW
 EXECUTE FUNCTION No_transactions_on_lockedShoppingcarts();
+
+
+-- Control The Number Of Carts
+CREATE OR REPLACE FUNCTION Cart_count_limits() RETURNS TRIGGER AS $$
+DECLARE 
+    cart_Counter INT;
+    user_Type    BOOLEAN; 
+
+BEGIN
+    SELECT COUNT(*) INTO cart_Counter
+    FROM SHOPPING_CART 
+    WHERE ID = NEW.ID;
+    SELECT EXISTS (SELECT 1 FROM VIP_CLIENT
+    WHERE ID = NEW.ID) INTO user_Type;
+
+    IF (user_Type) AND (cart_Counter > 5) THEN 
+        RAISE EXCEPTION 'CAN NOT REQUEST FOR MORE THAN FIVE CARTS AS AN VIP USER';
+    ELSIF NOT (user_Type) AND (cart_Counter > 1) THEN 
+        RAISE EXCEPTION 'CAN NOT REQUEST FOR MORE THAN 1 CARTS AS AN CIP USER';
+    END IF;
+
+    RETURN NEW;
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER cart_limtter_trigger
+BEFORE INSERT ON SHOPPING_CART
+FOR EACH ROW 
+EXECUTE FUNCTION Cart_count_limits() ;
+
+
+    
