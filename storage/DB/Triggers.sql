@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Referal invite's handling 
 CREATE OR REPLACE FUNCTION Ref_trigger_function() RETURNS TRIGGER AS $$
 BEGIN
@@ -150,7 +152,7 @@ BEFORE INSERT OR UPDATE ON ADDED_TO
 FOR EACH ROW 
 EXECUTE FUNCTION Prevent_Out_stock();
 
-
+-- Update the Quantity if it was added or removed from shopping cart
 CREATE OR REPLACE FUNCTION Update_the_quantity_on_cart_change() RETURNS TRIGGER AS $$
 
 BEGIN 
@@ -174,3 +176,122 @@ CREATE TRIGGER Update_quantity
 AFTER INSERT OR DELETE ON ADDED_TO 
 FOR EACH ROW
 EXECUTE FUNCTION Update_the_quantity_on_cart_change();
+
+
+-- Handling Percentage and Amount Discount and their ceilling !
+CREATE OR REPLACE FUNCTION Amount_Percentage_ceil() RETURNS TRIGGER AS $$
+    DECLARE
+        Amount            BIGINT;
+        cart_total        BIGINT;
+        discount_type     VARCHAR(10);
+        max_discount      BIGINT := 5000000;
+
+    BEGIN
+        SELECT Amount, discount_type INTO Amount, discount_type
+        FROM DISCOUNT_CODE
+        WHERE Code = NEW.Code;
+
+        SELECT SUM(P.current_price) INTO cart_total
+        FROM added_to A JOIN products P ON A.products_ID = P.ID
+        WHERE A.Cart_number = NEW.Cart_number;
+
+
+        IF discount_type = 'percentage' THEN
+            Amount := (cart_total * Amount) / 100;
+
+            IF Amount > max_discount THEN
+                Amount := max_discount;
+            END IF;
+
+        ELSIF discount_type = 'fixed' THEN
+            IF Amount > cart_total THEN
+                RAISE EXCEPTION 'Fixed Discount Can not be More Than Total Amount Of Cart!';
+            END IF;
+        END IF;
+    
+    RETURN NEW;    
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER Check_discount_mode
+BEFORE INSERT ON APPLIED_TO
+FOR EACH ROW 
+EXECUTE FUNCTION Amount_Percentage_ceil();
+
+
+-- Limit Discount Code Usage per User
+CREATE OR REPLACE FUNCTION Usage_Per_User() RETURNS TRIGGER AS $$
+    DECLARE
+        Usage_count     INT;
+        Max_usage_count INT;
+
+    BEGIN
+        SELECT COUNT(*) INTO Usage_count
+        FROM APPLIED_TO
+        WHERE ID = NEW.ID AND Code = NEW.Code;
+
+        SELECT Usage_Limit INTO Max_usage_count
+        FROM discount_code
+        WHERE Code = NEW.Code;
+
+        IF Usage_count >= Max_usage_count THEN 
+            RAISE EXCEPTION 'User has exceeded the allowed number of uses for this discount code!';
+        END IF;
+
+        RETURN NEW;
+END;
+$$ 
+LANGUAGE plpgsql;
+
+CREATE TRIGGER Counter_Limiter
+BEFORE INSERT ON APPLIED_TO
+FOR EACH ROW
+EXECUTE FUNCTION Usage_Per_User();
+
+
+-- Epiration Date Controller 
+CREATE OR REPLACE FUNCTION Expiration_date_Controller() RETURNS TRIGGER AS $$
+    DECLARE
+        Exi TIMESTAMP WITH TIME ZONE;
+    BEGIN
+        SELECT Expiration_date INTO Exi
+        FROM DISCOUNT_CODE 
+        WHERE Code = NEW.Code;
+
+
+        IF Exi < NOW() THEN 
+            RAISE EXCEPTION 'THIS CODE HAS BEEN EXPIRED!';
+        END IF;
+    
+    RETURN NEW;
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER Expiration_date_Controller_TRIGGER
+BEFORE INSERT ON APPLIED_TO
+FOR EACH ROW
+EXECUTE function Expiration_date_Controller();
+
+
+-- Unlock Shopping Cart After Payment
+CREATE or REPLACE FUNCTION unlocked_after_payment() RETURNS TRIGGER AS $$
+    BEGIN
+        IF NEW.STATUS = 'Successful' THEN 
+            UPDATE SHOPPING_CART
+            SET STATUS = 'unlocked'
+            WHERE Number = (SELECT Cart_number 
+                            FROM ISSUED_FOR
+                            WHERE Tracking_code = NEW.Tracking_code);
+        END IF;
+
+    RETURN NEW;
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER unlock_cart_after_payment
+AFTER INSERT OR UPDATE ON TRANSACTION
+FOR EACH ROW
+EXECUTE FUNCTION unlocked_after_payment();

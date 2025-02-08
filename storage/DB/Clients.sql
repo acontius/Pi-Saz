@@ -49,7 +49,7 @@ CREATE TYPE cart_status AS ENUM(
 CREATE TABLE IF NOT EXISTS SHOPPING_CART (
     ID     INT NOT NULL,
     Number VARCHAR(16) NOT NULL UNIQUE,
-    STATUS cart_status NOT NULL (STATUS <> 'locked'),
+    STATUS cart_status NOT NULL (STATUS <> 'locked') DEFAULT 'unlocked',
 
     PRIMARY KEY(ID,Number),
     FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE
@@ -71,9 +71,10 @@ CREATE TABLE IF NOT EXISTS LOCKED_SHOPPING_CART(
 CREATE TABLE IF NOT EXISTS DISCOUNT_CODE(
     Code            SERIAL NOT NULL PRIMARY KEY UNIQUE,
     Amount          BIGINT CHECK(Amount > 0) NOT NULL,
-    Usage_Limit           BIGINT CHECK(Usage_Limit > 0) NOT NULL,
+    Usage_Limit     BIGINT CHECK(Usage_Limit > 0) NOT NULL,
     Usage_count     SMALLINT NOT NULL ,
-    Expiration_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    Expiration_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    discount_type   VARCHAR(10) CHECK (discount_type IN('fixed', 'percentage'))
 );
 
 
