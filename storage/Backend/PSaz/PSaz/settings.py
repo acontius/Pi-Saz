@@ -22,6 +22,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # The ones i have added !
+    'Logs.apps.LogsConfig',
+    'Cart.apps.CartConfig',
+    'Users.apps.UsersConfig',
+    'Orders.apps.OrdersConfig',
+    'Payments.apps.PaymentsConfig',
+    'Products.apps.ProductsConfig',
+    'Discounts.apps.DiscountsConfig',
+    'SazegarYab.apps.SazegaryabConfig'
 ]
 
 MIDDLEWARE = [
@@ -77,7 +86,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+# LANGUAGE_CODE = 'fa-ir'
+
+TIME_ZONE = 'Asia/Tehran'
 USE_I18N = True
 USE_TZ = True
 
