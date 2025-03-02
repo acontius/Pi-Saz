@@ -1,0 +1,7 @@
+.idea/
+
+*.pyc
+
+locale_*.py
+
+db_conf.json
