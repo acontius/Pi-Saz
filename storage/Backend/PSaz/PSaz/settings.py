@@ -12,7 +12,8 @@ with open(BASE_DIR / 'PSaz/db_conf.json') as f:
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-ALLOWED_HOSTS = ["sepehrWPS", "*"]
+CORS_ORIGIN_ALLOW_ALL = True
+# ALLOWED_HOSTS = ["sepehrWPS", "*"]
 
 # Application definition
 INSTALLED_APPS = [
@@ -22,28 +23,33 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'crosheaders',
     # The ones i have added !
-    'Logs.apps.LogsConfig',
-    'Cart.apps.CartConfig',
     'Users.apps.UsersConfig',
-    'Orders.apps.OrdersConfig',
-    'Payments.apps.PaymentsConfig',
-    'Products.apps.ProductsConfig',
-    'Discounts.apps.DiscountsConfig',
-    'SazegarYab.apps.SazegaryabConfig'
+    'SazegarYab.apps.SazegarYabConfig',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'PSaz.middleware.JWTAuthentication',
+    'PSaz.middleware.SignupCheckData',
+    'PSaz.middleware.CheckVipMiddleware'
 ]
 
 ROOT_URLCONF = 'PSaz.urls'
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'users.authentication.JWTAuthentication'
+    ]
+}
 
 TEMPLATES = [
     {
@@ -83,6 +89,7 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
