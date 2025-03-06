@@ -219,16 +219,17 @@ def expiring_private_codes(user_id) :
     return [row[0] for row in rows]
 
 def get_vip_benefits(user_id):
-    """ Retrieves the VIP user's remaining subscription time, monthly profit, and cashback percentage. """
-    with connection.cursor() as c:
+    """Retrieves VIP user's remaining subscription time, monthly profit, and cashback percentage."""
+    with connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as c:
         c.execute("""
             SELECT 
-                VC.Subscription_expiration_time - CURRENT_TIMESTAMP AS remaining_time,
+                (VC.Subscription_expiration_time - CURRENT_TIMESTAMP) AS remaining_time,
                 COALESCE(SUM(T.Amount * 0.15), 0) AS monthly_profit,  
                 15 AS cashback_percentage
-            FROM VIP_CLIENT VC LEFT JOIN TRANSACTION T ON VC.ID = T.ID
-            AND T.STATUS = 'Successful'
-            AND T.Timestamp >= VC.Subscription_expiration_time
+            FROM VIP_CLIENT VC 
+            LEFT JOIN TRANSACTION T ON VC.ID = T.ID
+                AND T.STATUS = 'Successful'
+                AND T.Timestamp >= VC.Subscription_expiration_time
             WHERE VC.ID = %s
             GROUP BY VC.ID, VC.Subscription_expiration_time;
         """, [user_id])

@@ -74,11 +74,12 @@ def new_user_signup(request) -> JsonResponse:
 
 @csrf_exempt
 def show_profile_info(request):
-    """Shows user profile only if authenticated."""
+    """Fetches user profile including all required information."""
     if request.method != "GET":
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
     try:
+        # Authenticate user
         token = request.headers.get("Authorization")
         if not token:
             return JsonResponse({"error": "Unauthorized"}, status=401)
@@ -87,29 +88,46 @@ def show_profile_info(request):
         if not user_id:
             return JsonResponse({"error": "Invalid token"}, status=401)
 
-        # Fetch user profile
+        # Fetch User Profile Data
         data = DB_functions.get_user_profile(user_id)
         if not data:
             return JsonResponse({"error": "User profile not found"}, status=404)
 
-        # Fetch addresses
-        address = DB_functions.users_address(user_id)
-        if address:
-            data["addresses"] = address
+        # Fetch Addresses
+        addresses = DB_functions.users_address(user_id)
+        data["addresses"] = addresses
 
-        # VIP Status
-        VIP = DB_functions.is_vip(user_id)
-        data["is_vip"] = bool(VIP[0]) if VIP else False
+        # Fetch VIP Status & Benefits
+        is_vip = DB_functions.is_vip(user_id)[0]
+        data["is_vip"] = bool(is_vip)
 
-        # Referral Count
-        referred = DB_functions.refered_numbers(user_id)
-        data["counter"] = referred["counter"] if referred else 0
+        if is_vip:
+            vip_benefits = DB_functions.get_vip_benefits(user_id)
+            if vip_benefits:
+                data["vip_remaining_time"] = vip_benefits["remaining_time"]
+                data["vip_monthly_profit"] = vip_benefits["monthly_profit"]
+                data["cashback_percentage"] = vip_benefits["cashback_percentage"]
+
+        # Fetch Referral Data
+        referral_count = DB_functions.refered_numbers(user_id)["counter"]
+        data["referred_count"] = referral_count
+
+        # Fetch Expiring Discount Codes
+        expiring_codes = DB_functions.expiring_private_codes(user_id)
+        data["expiring_discount_codes"] = expiring_codes
+
+        # Fetch Shopping Cart Status
+        cart_status = DB_functions.get_cart_status(user_id)
+        data["cart_status"] = cart_status
+
+        # Fetch Recent Purchases
+        recent_purchases = DB_functions.recent_shops(user_id)
+        data["recent_purchases"] = recent_purchases
 
         return JsonResponse(data, status=200)
 
     except Exception as e:
         return JsonResponse({"error": "Failed to retrieve profile"}, status=500)
-
 
 @csrf_exempt
 def insert_address(request):
