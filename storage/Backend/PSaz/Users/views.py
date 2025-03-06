@@ -1,6 +1,6 @@
 import json
 from django.http import JsonResponse
-from .authentication import hashing, verify_pass
+from PSaz.authentication import hashing, verify_pass
 from django.db import IntegrityError
 from Users import DB_functions
 from PSaz import authentication
