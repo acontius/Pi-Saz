@@ -7,9 +7,10 @@ CREATE TABLE IF NOT EXISTS CLIENT(
     Last_name      VARCHAR(255) NOT NULL,
     Wallet_balance BIGINT CHECK(Wallet_balance >= 0) DEFAULT 0,
     Time_stamp     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    Referal_code   INT UNIQUE
+    Referal_code   VARCHAR(10) UNIQUE,
+    is_vip         BOOLEAN DEFAULT FALSE,
+    userPassword   VARCHAR(128) NOT NULL
 );
-
 
 CREATE TABLE IF NOT EXISTS VIP_CLIENT(
     ID                           INT PRIMARY KEY,
@@ -37,19 +38,20 @@ CREATE TABLE IF NOT EXISTS ADDRESS(
     FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE
 );
 
-
 CREATE TYPE cart_status AS ENUM(
-    'archived',
-    'unlocked',
-    'locked',
-    'ready'
+    'archived',   -- After a period or end of proccess 
+    'unlocked',   -- Open to use
+    'locked',     -- After first submit
+    'ready',      -- Ready to final submition
+    'blocked'     -- after 3 days no paying 
 );
 
-
 CREATE TABLE IF NOT EXISTS SHOPPING_CART (
-    ID     INT NOT NULL,
-    Number VARCHAR(16) NOT NULL UNIQUE,
-    STATUS cart_status NOT NULL (STATUS <> 'locked') DEFAULT 'unlocked',
+    Blocked_until TIMESTAMP,
+    ID            INT NOT NULL,
+    Number        VARCHAR(16) NOT NULL UNIQUE,
+    Time_stamp    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, 
+    STATUS        cart_status NOT NULL CHECK(STATUS <> 'locked') DEFAULT 'unlocked',
 
     PRIMARY KEY(ID,Number),
     FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE
@@ -77,15 +79,14 @@ CREATE TABLE IF NOT EXISTS DISCOUNT_CODE(
     discount_type   VARCHAR(10) CHECK (discount_type IN('fixed', 'percentage'))
 );
 
-
 CREATE TABLE IF NOT EXISTS PRIVATE_CODE(
     Code      INT NOT NULL PRIMARY KEY UNIQUE,
     ID        INT NOT NULL UNIQUE,
-    Timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    Timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP + INTERVAL '10 days',
 
     FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,
-    FOREIGN KEY (Code) REFERENCES DISCOUNT_CODE(Code) ON DELETE CASCADE
-    );
+    FOREIGN KEY(Code) REFERENCES DISCOUNT_CODE(Code) ON DELETE CASCADE
+);
 
 
 CREATE TABLE IF NOT EXISTS PUBLIC_CODE(
@@ -176,6 +177,7 @@ CREATE TABLE IF NOT EXISTS ADDED_TO(
     Product_ID    INT NOT NULL UNIQUE,
     Cart_number   VARCHAR(16) NOT NULL UNIQUE,
     Locked_number VARCHAR(16) NOT NULL UNIQUE,
+    Quantity      INT CHECK (Quantity > 0) DEFAULT 1,
 
     PRIMARY KEY(ID,Product_ID,Cart_number,Locked_number),
     FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,

@@ -23,23 +23,22 @@ EXECUTE FUNCTION Ref_trigger_function();
 
 
 -- Trigger to Prevent Adding Products to Locked Carts
-CREATE OR REPLACE FUNCTION Not_leeting_locked_shoppingCarts() RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION Not_leeting_locked_shoppingCarts() 
+RETURNS TRIGGER AS $$
 DECLARE
     cart_status cart_status;
-
 BEGIN
     SELECT STATUS INTO cart_status 
     FROM SHOPPING_CART 
-    WHERE Number = NEW.Cart_number;
+    WHERE ID = NEW.Cart_ID; 
 
-    IF cart_status = 'locked' THEN 
-        RAISE EXCEPTION 'LOCKED CARTS CAN NOT TAKE ANY ACTIONS(ADD TO)';
+    IF cart_status IN ('locked', 'blocked') THEN 
+        RAISE EXCEPTION 'BLOCKED OR LOCKED CCARTS CANT TAKE ANY ACTIONS !';
     END IF;
 
     RETURN NEW;
 END;
-$$
-LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER Add_to_cart_Limits
 BEFORE INSERT ON ADDED_TO
@@ -95,34 +94,34 @@ EXECUTE FUNCTION No_transactions_on_lockedShoppingcarts();
 
 
 -- Control The Number Of Carts
-CREATE OR REPLACE FUNCTION Cart_count_limits() RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION Cart_count_limits() 
+RETURNS TRIGGER AS $$
 DECLARE 
     cart_Counter INT;
-    user_Type    BOOLEAN; 
-
+    is_vip BOOLEAN;
 BEGIN
     SELECT COUNT(*) INTO cart_Counter
     FROM SHOPPING_CART 
-    WHERE ID = NEW.ID;
-    SELECT EXISTS (SELECT 1 FROM VIP_CLIENT
-    WHERE ID = NEW.ID) INTO user_Type;
+    WHERE Client_ID = NEW.Client_ID;
 
-    IF (user_Type) AND (cart_Counter > 5) THEN 
-        RAISE EXCEPTION 'CAN NOT REQUEST FOR MORE THAN FIVE CARTS AS AN VIP USER';
-    ELSIF NOT (user_Type) AND (cart_Counter > 1) THEN 
-        RAISE EXCEPTION 'CAN NOT REQUEST FOR MORE THAN 1 CARTS AS AN CIP USER';
+    SELECT is_vip INTO is_vip 
+    FROM CLIENT 
+    WHERE ID = NEW.Client_ID;
+
+    IF is_vip AND cart_Counter >= 5 THEN 
+        RAISE EXCEPTION 'VIP USERS HAS LIMITS OF ONLY 5 CARTS !';
+    ELSIF NOT is_vip AND cart_Counter >= 1 THEN 
+        RAISE EXCEPTION 'CIP USERS HAS LIMITS OF ONLY 1 CART !' ;
     END IF;
 
     RETURN NEW;
 END;
-$$
-LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER cart_limtter_trigger
+CREATE TRIGGER cart_limit_trigger
 BEFORE INSERT ON SHOPPING_CART
 FOR EACH ROW 
-EXECUTE FUNCTION Cart_count_limits() ;
-
+EXECUTE FUNCTION Cart_count_limits();
 
 -- Users Cannot Add Out-of-Stock Products to Their Shopping Cart
 CREATE OR REPLACE FUNCTION Prevent_Out_stock() RETURNS TRIGGER AS $$
@@ -156,7 +155,7 @@ EXECUTE FUNCTION Prevent_Out_stock();
 CREATE OR REPLACE FUNCTION Update_the_quantity_on_cart_change() RETURNS TRIGGER AS $$
 
 BEGIN 
-    IF TG_OP = "INSERT" THEN 
+    IF TG_OP = 'INSERT' THEN 
         UPDATE PRODUCTS
         SET stock_count = stock_count - 1
         WHERE id = NEW.Product_ID;
@@ -180,39 +179,37 @@ EXECUTE FUNCTION Update_the_quantity_on_cart_change();
 
 -- Handling Percentage and Amount Discount and their ceilling !
 CREATE OR REPLACE FUNCTION Amount_Percentage_ceil() RETURNS TRIGGER AS $$
-    DECLARE
-        Amount            BIGINT;
-        cart_total        BIGINT;
-        discount_type     VARCHAR(10);
-        max_discount      BIGINT := 5000000;
+DECLARE
+    discount_amount     BIGINT;
+    cart_total          BIGINT;
+    discount_type       VARCHAR(10);
+    max_discount        BIGINT := 5000000;
+BEGIN
+    SELECT discount_code.Amount, discount_code.discount_type INTO discount_amount, discount_type
+    FROM DISCOUNT_CODE
+    WHERE Code = NEW.Code;
 
-    BEGIN
-        SELECT Amount, discount_type INTO Amount, discount_type
-        FROM DISCOUNT_CODE
-        WHERE Code = NEW.Code;
+    SELECT SUM(P.current_price) INTO cart_total
+    FROM ADDED_TO A JOIN PRODUCTS P ON A.Product_ID = P.ID
+    WHERE A.Cart_number = NEW.Cart_number;
 
-        SELECT SUM(P.current_price) INTO cart_total
-        FROM added_to A JOIN products P ON A.products_ID = P.ID
-        WHERE A.Cart_number = NEW.Cart_number;
+    IF discount_type = 'percentage' THEN
+        discount_amount := (cart_total * discount_amount) / 100;
 
-
-        IF discount_type = 'percentage' THEN
-            Amount := (cart_total * Amount) / 100;
-
-            IF Amount > max_discount THEN
-                Amount := max_discount;
-            END IF;
-
-        ELSIF discount_type = 'fixed' THEN
-            IF Amount > cart_total THEN
-                RAISE EXCEPTION 'Fixed Discount Can not be More Than Total Amount Of Cart!';
-            END IF;
+        IF discount_amount > max_discount THEN
+            discount_amount := max_discount;
         END IF;
-    
+
+    ELSIF discount_type = 'fixed' THEN
+        IF discount_amount > cart_total THEN
+            RAISE EXCEPTION 'Fixed Discount Cannot Be More Than Total Amount Of Cart!';
+        END IF;
+    END IF;
+
     RETURN NEW;    
 END;
-$$
-LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
+
 
 CREATE TRIGGER Check_discount_mode
 BEFORE INSERT ON APPLIED_TO
@@ -295,3 +292,157 @@ CREATE TRIGGER unlock_cart_after_payment
 AFTER INSERT OR UPDATE ON TRANSACTION
 FOR EACH ROW
 EXECUTE FUNCTION unlocked_after_payment();
+
+/* After 3 Days the Products will return */
+CREATE OR REPLACE FUNCTION Restore_Stock_Block_Cart()
+RETURNS VOID AS $$
+BEGIN
+    UPDATE PRODUCTS
+    SET stock_count = stock_count + A.quantity
+    FROM (
+        SELECT Product_ID, COUNT(*) AS quantity
+        FROM ADDED_TO
+        WHERE Cart_ID IN (
+            SELECT ID
+            FROM SHOPPING_CART
+            WHERE STATUS = 'locked'
+              AND Time_stamp < NOW() - INTERVAL '3 DAYS'
+        )
+        GROUP BY Product_ID
+    ) AS A
+    WHERE PRODUCTS.id = A.Product_ID;
+
+    UPDATE SHOPPING_CART
+    SET 
+        STATUS = 'blocked',
+        Blocked_until = NOW() + INTERVAL '7 DAYS'
+    WHERE STATUS = 'locked'
+      AND Time_stamp < NOW() - INTERVAL '3 DAYS';
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT cron.schedule(
+    'restore_stock_job', --task
+    '0 0 * * *', -- scedual time to check every day
+    $$CALL Restore_Stock_Block_Cart()$$
+);
+
+/* claculates the level and the amount of dicount by refaring */
+CREATE OR REPLACE FUNCTION Calc_Referal_DISCOUNT(new_user_id INT, referrer_id INT) 
+RETURNS VOID AS $$
+DECLARE
+    current_id          INT;
+    current_level       INT := 1;
+    discount_percentage FLOAT;
+    discount_amount     BIGINT;
+    discount_code_id    INT;  
+BEGIN
+    current_id := referrer_id;
+    
+    WHILE current_id IS NOT NULL LOOP
+        discount_percentage := 50 / (2 ^ (current_level - 1));
+
+        IF discount_percentage < 1 THEN 
+            discount_amount := 50000;
+        ELSE 
+            discount_amount := (1000000 * discount_percentage) / 100;
+        END IF;
+
+        INSERT INTO DISCOUNT_CODE (Amount, Usage_Limit, Expiration_date)
+        VALUES (
+            discount_amount,
+            1, 
+            CURRENT_TIMESTAMP + INTERVAL '7 DAYS'
+        )
+        RETURNING Code INTO discount_code_id;
+
+        INSERT INTO PRIVATE_CODE (Code, Client_ID)
+        VALUES (discount_code_id, current_id);
+
+        SELECT Referral_Referrer INTO current_id 
+        FROM CLIENT 
+        WHERE ID = current_id;
+
+        IF new_user_id = current_id THEN 
+            RAISE EXCEPTION 'CANT REFARE YOURSELF !';
+        END IF;
+
+        EXIT WHEN current_id IS NULL;
+        current_level := current_level + 1;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+/* checks if the subscription ended or not */
+CREATE OR REPLACE FUNCTION Check_VIP_Expiration()
+RETURNS VOID AS $$
+BEGIN
+    DELETE FROM VIP_CLIENT
+    WHERE Subscription_expiration_time < NOW();
+
+    UPDATE CLIENT
+    SET is_vip = FALSE
+    WHERE ID IN (
+        SELECT ID
+        FROM VIP_CLIENT
+        WHERE Subscription_expiration_time < NOW()
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT cron.schedule(
+    'check_vip_expiration', --do this 
+    '0 0 * * *', --everyday at 00:00
+    $$CALL Check_VIP_Expiration()$$
+);
+
+
+/* dissabling 4 carts after subscription has expired */
+CREATE OR REPLACE FUNCTION Disable_Extra_Carts()
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM SHOPPING_CART
+    WHERE Client_ID = OLD.ID
+      AND ID NOT IN (
+          SELECT ID
+          FROM SHOPPING_CART
+          WHERE Client_ID = OLD.ID
+          ORDER BY Time_stamp
+          LIMIT 1
+      );
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER Remove_Extra_Carts
+AFTER DELETE ON VIP_CLIENT
+FOR EACH ROW
+EXECUTE FUNCTION Disable_Extra_Carts();
+
+
+CREATE OR REPLACE FUNCTION Monthly_15Percent_Refund()
+RETURNS VOID AS $$
+BEGIN
+    UPDATE CLIENT
+    SET Wallet_balance = Wallet_balance + (
+        SELECT SUM(P.current_price * 0.15)
+        FROM TRANSACTION T
+        JOIN ISSUED_FOR I ON T.Tracking_code = I.Tracking_code
+        JOIN ADDED_TO A ON I.Cart_number = A.Cart_number
+        JOIN PRODUCTS P ON A.Product_ID = P.ID
+        WHERE T.STATUS = 'Successful'
+          AND T.Timestamp >= NOW() - INTERVAL '1 MONTH'
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT cron.schedule(
+    'monthly_refund', 
+    '0 0 1 * *', -- First day of Every month
+    $$CALL Monthly_15Percent_Refund()$$
+);
+
+/* scedualed functions checks by this  */
+-- SELECT * FROM cron.job_run_details;
+-- to run each file 
+-- psql -U UserName -d DBName -a -f file name.sql 

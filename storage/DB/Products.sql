@@ -10,8 +10,9 @@ CREATE TABLE IF NOT EXISTS PRODUCTS (
     model VARCHAR(255)
 );
 
+
 CREATE TABLE IF NOT EXISTS HDD (
-    id BIGINT PRIMARY KEY,
+    id INT PRIMARY KEY,
     rotational_speed INT CHECK (rotational_speed >= 0),
     wattage INT CHECK (wattage >= 0),
     capacity INT CHECK (capacity >= 0),
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS HDD (
     width FLOAT CHECK (width >= 0.0),
     FOREIGN KEY (id) REFERENCES PRODUCTS(id) ON DELETE CASCADE
 );
+
 
 CREATE TABLE IF NOT EXISTS CASE_TABLE (
     id BIGINT PRIMARY KEY,
