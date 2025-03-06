@@ -27,7 +27,7 @@ def JWT_generate(user_id : int) -> str :
 
 def JWT_decode(token : str) -> dict :
     try :
-        return jwt.decode(token, JWT_SECRET_KEY, algorithm = ['HS256'])
+        return jwt.decode(token, JWT_SECRET_KEY, algorithm = 'HS256')
     except jwt.ExpiredSignatureError : 
         raise ValueError('Token has expired !')
     except jwt.InvalidTokenError:

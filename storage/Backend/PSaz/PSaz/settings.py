@@ -13,7 +13,7 @@ with open(BASE_DIR / 'PSaz/db_conf.json') as f:
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 CORS_ORIGIN_ALLOW_ALL = True
-# ALLOWED_HOSTS = ["sepehrWPS", "*"]
+ALLOWED_HOSTS = ["sepehrWPS", "*",'0.0.0.0']
 
 # Application definition
 INSTALLED_APPS = [
@@ -23,10 +23,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'crosheaders',
     # The ones i have added !
+    'corsheaders',
     'Users.apps.UsersConfig',
-    'SazegarYab.apps.SazegarYabConfig',
+    'SazegarYab.apps.SazegaryabConfig',
 ]
 
 MIDDLEWARE = [
@@ -47,7 +47,7 @@ ROOT_URLCONF = 'PSaz.urls'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'users.authentication.JWTAuthentication'
+        'Users.authentication.JWTAuthentication'
     ]
 }
 

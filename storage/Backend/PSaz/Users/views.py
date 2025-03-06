@@ -4,14 +4,15 @@ from PSaz.authentication import hashing, verify_pass
 from django.db import IntegrityError
 from Users import DB_functions
 from PSaz import authentication
+from django.views.decorators.csrf import csrf_exempt
 
-
+@csrf_exempt
 def user_login(request) -> JsonResponse:
     if request.method == "POST":
         try:
-            data = json.loads(request.body.decode())
+            data         = json.loads(request.body.decode())
             phone_number = data["phone_number"]
-            password = data["password"]
+            password     = data["password"]
         except (KeyError, json.JSONDecodeError):
             return JsonResponse({"error": "Invalid request"}, status=400)
 
@@ -28,6 +29,7 @@ def user_login(request) -> JsonResponse:
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
 
+@csrf_exempt
 def new_user_signup(request) -> JsonResponse:
     if request.method == "POST":
         try:
@@ -61,6 +63,7 @@ def new_user_signup(request) -> JsonResponse:
             if referral_code:
                 DB_functions.add_to_referral_code(referral_code, data["phone_number"])
 
+            # Generate JWT after successful registration
             token = authentication.JWT_generate(user_id)
             return JsonResponse({"jwt": token, "user_id": user_id, "message": "Registration successful"}, status=201)
 
@@ -136,7 +139,7 @@ def insert_address(request):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        token = request.headers.get("Authorization")
+        token = request.headers.get("Authoaccsszdc rization")
         if not token:
             return JsonResponse({"error": "Unauthorized"}, status=401)
 

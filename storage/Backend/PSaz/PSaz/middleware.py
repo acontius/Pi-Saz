@@ -1,9 +1,8 @@
-# pcsaz_back/middleware.py
 import json
 from django.http import JsonResponse
 from Users import DB_functions as qs
 from Users import DB_functions as user_qs
-from PSaz.authentication import decode_jwt
+from PSaz.authentication import JWT_decode
 from PSaz.DB_functions import validate_referral_code
 
 class JWTAuthentication:
@@ -23,7 +22,11 @@ class JWTAuthentication:
         except ValueError as e:
             return JsonResponse({'error': str(e)}, status=401)
 
-        # Taking users id for fututre uses
+        if token.startswith('Bearer '):
+            token = token[7:]
+        else:
+            return JsonResponse({'error': 'Invalid token format'}, status=401)
+
         request.user_id = payload.get('user_id')
         return self.get_response(request)
 
