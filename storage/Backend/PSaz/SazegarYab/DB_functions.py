@@ -4,11 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 def check_cpu_compatibility(cpu_id: int) -> dict:
-    """
-    CPU compatibilities with cooler and MB and PS
-    """
     try:
         with connection.cursor() as c:
             result = {
@@ -18,57 +14,57 @@ def check_cpu_compatibility(cpu_id: int) -> dict:
                 "compatible_cases": []
             }
 
-            """ socket with MB """
+            # Motherboards with matching socket
             c.execute("""
-                SELECT m.id, m.brand, m.model, m.socket_type 
+                SELECT m.id, m.brand, m.model 
                 FROM MOTHERBOARD m
-                JOIN MC_SOCKET_COMPATIBLE_WITH mc ON m.id = mc.motherboard_id
-                WHERE mc.cpu_id = %s
+                JOIN MC_SOCKET_COMPATIBLE_WITH mc 
+                ON m.id = mc.Motherboard_id
+                WHERE mc.Cpu_id = %s
             """, [cpu_id])
             result["compatible_motherboards"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            """ with coolers """
+            # Coolers with matching socket
             c.execute("""
-                SELECT cl.id, cl.brand, cl.model, cl.depth, cl.height, cl.width
+                SELECT cl.id, cl.brand, cl.model 
                 FROM COOLER cl
-                JOIN CC_SOCKET_COMPATIBLE_WITH cc ON cl.id = cc.cooler_id
-                WHERE cc.cpu_id = %s
+                JOIN CC_SOCKET_COMPATIBLE_WITH cc 
+                ON cl.id = cc.Cooler_id
+                WHERE cc.Cpu_id = %s
             """, [cpu_id])
             result["compatible_coolers"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            """ wattage for CPU+COOLER """
+            # PSUs that can handle CPU + Cooler wattage
             c.execute("""
                 SELECT ps.id, ps.brand, ps.supported_wattage 
                 FROM POWER_SUPPLY ps
                 WHERE ps.supported_wattage >= (
-                    SELECT c.wattage + cl.wattage 
+                    SELECT c.wattage + COALESCE(cl.wattage, 0)
                     FROM CPU c
-                    JOIN COOLER cl ON cl.id = (
-                        SELECT cooler_id FROM CC_SOCKET_COMPATIBLE_WITH WHERE cpu_id = %s LIMIT 1
-                    )
+                    LEFT JOIN CC_SOCKET_COMPATIBLE_WITH cc ON c.id = cc.Cpu_id
+                    LEFT JOIN COOLER cl ON cc.Cooler_id = cl.id
                     WHERE c.id = %s
                 )
-            """, [cpu_id, cpu_id])
+            """, [cpu_id])
             result["compatible_psus"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            """ case with coolers """
+            # Cases that fit cooler dimensions
             c.execute("""
                 SELECT ct.id, ct.brand, ct.depth, ct.height, ct.width
                 FROM CASE_TABLE ct
                 WHERE ct.depth >= (SELECT depth FROM COOLER WHERE id IN (
-                        SELECT cooler_id FROM CC_SOCKET_COMPATIBLE_WITH WHERE cpu_id = %s
+                        SELECT Cooler_id FROM CC_SOCKET_COMPATIBLE_WITH WHERE Cpu_id = %s LIMIT 1
                     ))
                 AND ct.height >= (SELECT height FROM COOLER WHERE id IN (
-                        SELECT cooler_id FROM CC_SOCKET_COMPATIBLE_WITH WHERE cpu_id = %s
+                        SELECT Cooler_id FROM CC_SOCKET_COMPATIBLE_WITH WHERE Cpu_id = %s LIMIT 1
                     ))
                 AND ct.width >= (SELECT width FROM COOLER WHERE id IN (
-                        SELECT cooler_id FROM CC_SOCKET_COMPATIBLE_WITH WHERE cpu_id = %s
+                        SELECT Cooler_id FROM CC_SOCKET_COMPATIBLE_WITH WHERE Cpu_id = %s LIMIT 1
                     ))
             """, [cpu_id, cpu_id, cpu_id])
             result["compatible_cases"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
             return result
-
     except Exception as e:
         logger.error(f"CPU compatibility check failed: {e}")
         return {}
@@ -78,56 +74,61 @@ def check_cpu_compatibility(cpu_id: int) -> dict:
 def check_motherboard_compatibility(motherboard_id: int) -> dict:
     try:
         with connection.cursor() as c:
-            """ socket """
+            result = {
+                "compatible_cpus": [],
+                "compatible_rams": [],
+                "valid_rams_by_frequency": [],
+                "compatible_psus": []
+            }
+
+            # Compatible CPUs
             c.execute("""
                 SELECT c.id, c.brand, c.model 
-                FROM cpu c
-                JOIN mc_socket_compatible_with mc ON c.id = mc.cpu_id
-                WHERE mc.motherboard_id = %s
+                FROM CPU c
+                JOIN MC_SOCKET_COMPATIBLE_WITH mc 
+                ON c.id = mc.Cpu_id
+                WHERE mc.Motherboard_id = %s
             """, [motherboard_id])
-            compatible_cpus = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
-            
-            """ RAM GEN """
+            result["compatible_cpus"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
+
+            # RAM generation compatibility
             c.execute("""
                 SELECT r.id, r.brand, r.generation 
-                FROM ram_stick r
-                JOIN rm_slot_compatible_with rm ON r.id = rm.ram_id
-                WHERE rm.motherboard_id = %s
+                FROM RAM_STICK r
+                JOIN RM_SLOT_COMPATIBLE_WITH rm 
+                ON r.id = rm.Ram_id
+                WHERE rm.Motherboard_id = %s
             """, [motherboard_id])
-            compatible_rams = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
+            result["compatible_rams"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            """ RAM FREQUENCY """ 
+            # RAM frequency check
             c.execute("""
                 SELECT r.id, r.frequency, m.memory_speed_range 
-                FROM ram_stick r
-                JOIN rm_slot_compatible_with rm ON r.id = rm.ram_id
-                JOIN motherboard m ON rm.motherboard_id = m.id
-                WHERE rm.motherboard_id = %s 
-                AND r.frequency BETWEEN m.memory_speed_range - 100 AND m.memory_speed_range + 100
+                FROM RAM_STICK r
+                JOIN RM_SLOT_COMPATIBLE_WITH rm ON r.id = rm.Ram_id
+                JOIN MOTHERBOARD m ON rm.Motherboard_id = m.id
+                WHERE rm.Motherboard_id = %s 
+                AND r.frequency <= m.memory_speed_range
             """, [motherboard_id])
-            valid_rams = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
+            result["valid_rams_by_frequency"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            """ Wattage """
+            # PSU wattage check
             c.execute("""
                 SELECT ps.id, ps.supported_wattage 
-                FROM power_supply ps
+                FROM POWER_SUPPLY ps
                 WHERE ps.supported_wattage >= (
-                    SELECT wattage FROM motherboard WHERE id = %s
+                    SELECT wattage FROM MOTHERBOARD WHERE id = %s
                 )
             """, [motherboard_id])
-            compatible_psu = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
+            result["compatible_psus"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            return {
-                "compatible_cpus": compatible_cpus,
-                "compatible_rams": compatible_rams,
-                "valid_rams_by_frequency": valid_rams,
-                "compatible_psus": compatible_psu
-            }
-    
+            return result
     except Exception as e:
         logger.error(f"Motherboard compatibility check failed: {e}")
         return {}
 
+
+        
 def motherboard_cpu(motherboard_id=None, cpu_id=None) -> dict:
     try:
         with connection.cursor() as c:
@@ -135,15 +136,15 @@ def motherboard_cpu(motherboard_id=None, cpu_id=None) -> dict:
                 c.execute("""
                     SELECT mb.id, mb.brand, mb.model 
                     FROM motherboard mb
-                    JOIN mc_socket_compatible_with mc ON mb.id = mc.motherboard_id
-                    WHERE mc.cpu_id = %s
+                    JOIN mc_socket_compatible_with mc ON mb.id = mc.Motherboard_id
+                    WHERE mc.Cpu_id = %s
                 """, [cpu_id])
             elif motherboard_id:
                 c.execute("""
                     SELECT c.id, c.brand, c.model 
                     FROM cpu c
-                    JOIN mc_socket_compatible_with mc ON c.id = mc.cpu_id
-                    WHERE mc.motherboard_id = %s
+                    JOIN mc_socket_compatible_with mc ON c.id = mc.Cpu_id
+                    WHERE mc.Motherboard_id = %s
                 """, [motherboard_id])
             
             columns = [col[0] for col in c.description]
@@ -160,15 +161,15 @@ def compatible_ram_motherboard(motherboard_id=None, ram_id=None):
             if ram_id:
                 c.execute("""
                     SELECT m.id, m.brand, m.model, m.memory_speed_range 
-                    FROM RM_SLOT_COMPATIBLE_WITH rm JOIN MOTHERBOARD m ON rm.motherboard_id = m.id
-                    WHERE rm.ram_id = %s
+                    FROM RM_SLOT_COMPATIBLE_WITH rm JOIN MOTHERBOARD m ON rm."Motherboard_id" = m.id
+                    WHERE rm.Ram_id = %s
                 """, [ram_id])
                 
             elif motherboard_id:
                 c.execute("""
                     SELECT r.id, r.brand, r.capacity, r.frequency 
-                    FROM RM_SLOT_COMPATIBLE_WITH rm JOIN RAM_STICK r ON rm.ram_id = r.id
-                    WHERE rm.motherboard_id = %s
+                    FROM RM_SLOT_COMPATIBLE_WITH rm JOIN RAM_STICK r ON rm.Ram_id = r.id
+                    WHERE rm.Motherboard_id = %s
                 """, [motherboard_id])
                 
             columns = [col[0] for col in c.description]
@@ -211,11 +212,7 @@ def about_product(pid="ALL"):
         return {"error": "Database error"}, 500
 
 
-
 def check_ram_compatibility(ram_id: int) -> dict:
-    """
-    RAM compatibilities
-    """
     try:
         with connection.cursor() as c:
             result = {
@@ -225,98 +222,57 @@ def check_ram_compatibility(ram_id: int) -> dict:
                 "compatible_cases": []
             }
 
-            """ generation compatibilities """
+            # Get RAM specs
+            c.execute("SELECT frequency, capacity FROM RAM_STICK WHERE id = %s", [ram_id])
+            ram_freq, ram_cap = c.fetchone()
+
+            # Motherboards with matching generation and slot
             c.execute("""
-                SELECT m.id, m.brand, m.model, m.ram_generation_support
+                SELECT m.id, m.brand, m.model 
                 FROM MOTHERBOARD m
-                JOIN RM_SLOT_COMPATIBLE_WITH rm ON m.id = rm.motherboard_id
-                WHERE rm.ram_id = %s 
-                AND m.ram_generation_support = (
-                    SELECT generation FROM RAM_STICK WHERE id = %s
-                )
-            """, [ram_id, ram_id])
-            result["compatible_motherboards"] = [
-                dict(zip([col[0] for col in c.description], row)) 
-                for row in c.fetchall()
-            ]
-
-            """ frequence compatibilities with MB """
-            c.execute("""
-                SELECT m.id, m.brand, m.memory_speed_range
-                FROM MOTHERBOARD m
-                JOIN RM_SLOT_COMPATIBLE_WITH rm ON m.id = rm.motherboard_id
-                JOIN RAM_STICK r ON rm.ram_id = r.id
-                WHERE r.id = %s 
-                AND r.frequency BETWEEN m.memory_speed_range - 100 AND m.memory_speed_range + 100
+                JOIN RM_SLOT_COMPATIBLE_WITH rm ON m.id = rm.Motherboard_id
+                WHERE rm.Ram_id = %s
             """, [ram_id])
-            result["valid_motherboards_by_frequency"] = [
-                dict(zip([col[0] for col in c.description], row)) 
-                for row in c.fetchall()
-            ]
+            result["compatible_motherboards"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            """ limit compatibilities with CPU"""
+            # CPUs that support RAM capacity and frequency
             c.execute("""
-                SELECT cpu.id, cpu.brand, cpu.model, cpu.maximum_addressable_memory_limit
-                FROM CPU cpu
-                WHERE cpu.maximum_addressable_memory_limit >= (
-                    SELECT capacity FROM RAM_STICK WHERE id = %s
-                )
-            """, [ram_id])
-            result["compatible_cpus"] = [
-                dict(zip([col[0] for col in c.description], row)) 
-                for row in c.fetchall()
-            ]
+                SELECT id, brand, model 
+                FROM CPU 
+                WHERE maximum_addressable_memory_limit >= %s
+                AND base_frequency <= %s 
+                AND boost_frequency >= %s
+            """, [ram_cap, ram_freq, ram_freq])
+            result["compatible_cpus"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            """ frequence compatibilities with CPU """
+            # PSU check
             c.execute("""
-                SELECT cpu.id, cpu.brand, cpu.base_frequency, cpu.boost_frequency
-                FROM CPU cpu
-                WHERE (
-                    SELECT frequency FROM RAM_STICK WHERE id = %s
-                ) BETWEEN cpu.base_frequency AND cpu.boost_frequency
-            """, [ram_id])
-            result["valid_cpus_by_frequency"] = [
-                dict(zip([col[0] for col in c.description], row)) 
-                for row in c.fetchall()
-            ]
-
-            """ wattage compatibilities """
-            c.execute("""
-                SELECT ps.id, ps.brand, ps.supported_wattage
+                SELECT ps.id, ps.brand, ps.supported_wattage 
                 FROM POWER_SUPPLY ps
                 WHERE ps.supported_wattage >= (
                     SELECT wattage FROM RAM_STICK WHERE id = %s
                 )
             """, [ram_id])
-            result["compatible_power_supplies"] = [
-                dict(zip([col[0] for col in c.description], row)) 
-                for row in c.fetchall()
-            ]
+            result["compatible_power_supplies"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            """ case compatibilities """
+            # Case dimensions
             c.execute("""
-                SELECT ct.id, ct.brand, ct.depth, ct.height, ct.width
+                SELECT ct.id, ct.brand 
                 FROM CASE_TABLE ct
                 WHERE ct.depth >= (SELECT depth FROM RAM_STICK WHERE id = %s)
                 AND ct.height >= (SELECT height FROM RAM_STICK WHERE id = %s)
                 AND ct.width >= (SELECT width FROM RAM_STICK WHERE id = %s)
             """, [ram_id, ram_id, ram_id])
-            result["compatible_cases"] = [
-                dict(zip([col[0] for col in c.description], row)) 
-                for row in c.fetchall()
-            ]
+            result["compatible_cases"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
             return result
-
     except Exception as e:
         logger.error(f"RAM compatibility check failed: {e}")
         return {}
 
 
+
 def check_gpu_compatibility(gpu_id: int) -> dict:
-    """
-    GPU compatibilities with MB and PS
-    """
     try:
         with connection.cursor() as c:
             result = {
@@ -325,16 +281,17 @@ def check_gpu_compatibility(gpu_id: int) -> dict:
                 "compatible_cases": []
             }
 
-            """ slot with MB """
+            # Motherboard compatibility via junction table
             c.execute("""
-                SELECT m.id, m.brand, m.model, m.gpu_slot_type 
+                SELECT m.id, m.brand, m.model 
                 FROM MOTHERBOARD m
-                JOIN GM_SLOT_COMPATIBLE_WITH gm ON m.id = gm.motherboard_id
-                WHERE gm.gpu_id = %s
+                JOIN GM_SLOT_COMPATIBLE_WITH gm 
+                ON m.id = gm.Motherboard_id
+                WHERE gm.Gpu_id = %s
             """, [gpu_id])
             result["compatible_motherboards"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            """ wattage """
+            # PSU wattage check
             c.execute("""
                 SELECT ps.id, ps.brand, ps.supported_wattage 
                 FROM POWER_SUPPLY ps
@@ -344,7 +301,7 @@ def check_gpu_compatibility(gpu_id: int) -> dict:
             """, [gpu_id])
             result["compatible_psus"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            """ GPU dementions with case """
+            # Case dimensions check
             c.execute("""
                 SELECT ct.id, ct.brand, ct.depth, ct.height, ct.width
                 FROM CASE_TABLE ct
@@ -355,136 +312,156 @@ def check_gpu_compatibility(gpu_id: int) -> dict:
             result["compatible_cases"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
             return result
-
     except Exception as e:
         logger.error(f"GPU compatibility check failed: {e}")
         return {}
 
 def check_power_supply_compatibility(power_supply_id: int) -> dict:
-    """
-    PS compatibilities with GPU and ...
-    """
     try:
         with connection.cursor() as c:
             result = {
                 "compatible_gpus": [],
                 "remaining_wattage": 0,
-                "compatible_ssds": [],
-                "compatible_hdds": []
+                "compatible_storage": [],
+                "component_compatibility": []
             }
 
-            """ conector with GPU """
+            # Get total system wattage
             c.execute("""
-                SELECT g.id, g.brand, g.model, g.connector_type 
+                SELECT ps.supported_wattage - (
+                    SELECT COALESCE(SUM(wattage), 0)
+                    FROM (
+                        SELECT wattage FROM CPU
+                        UNION ALL SELECT wattage FROM GPU
+                        UNION ALL SELECT wattage FROM MOTHERBOARD
+                        UNION ALL SELECT wattage FROM RAM_STICK
+                        UNION ALL SELECT wattage FROM COOLER
+                        UNION ALL SELECT wattage FROM SSD
+                        UNION ALL SELECT wattage FROM HDD
+                    ) AS components
+                )
+                FROM POWER_SUPPLY ps
+                WHERE ps.id = %s
+            """, [power_supply_id])
+            remaining_wattage = c.fetchone()[0] or 0
+            result["remaining_wattage"] = remaining_wattage
+
+            # Compatible GPUs through connector table
+            c.execute("""
+                SELECT g.id, g.brand, g.model 
                 FROM GPU g
-                JOIN CONNECTOR_COMPATIBLE_WITH cc ON g.id = cc.gpu_id
-                WHERE cc.power_id = %s
+                JOIN CONNECTOR_COMPATIBLE_WITH cc 
+                ON g.id = cc.Gpu_id
+                WHERE cc.Power_id = %s
             """, [power_supply_id])
             result["compatible_gpus"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            """ reamining wattage with """
+            # Compatible storage devices
             c.execute("""
-                SELECT ps.supported_wattage - (
-                    SELECT COALESCE(SUM(wattage), 0) 
-                    FROM (
-                        SELECT wattage FROM CPU UNION ALL
-                        SELECT wattage FROM GPU UNION ALL
-                        SELECT wattage FROM MOTHERBOARD
-                    ) AS total
-                )
-                FROM POWER_SUPPLY ps 
-                WHERE ps.id = %s
-            """, [power_supply_id])
-            result["remaining_wattage"] = c.fetchone()[0]
+                (SELECT id, 'ssd' AS type FROM SSD WHERE wattage <= %s)
+                UNION ALL
+                (SELECT id, 'hdd' FROM HDD WHERE wattage <= %s)
+            """, [remaining_wattage, remaining_wattage])
+            result["compatible_storage"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            """ compatibilities with SSD/HDD """ 
+            # All compatible components
             c.execute("""
-                SELECT ssd.id, ssd.brand, ssd.model 
-                FROM SSD ssd 
-                WHERE ssd.wattage <= %s
-            """, [result["remaining_wattage"]])
-            result["compatible_ssds"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
-
-            c.execute("""
-                SELECT hdd.id, hdd.brand, hdd.model 
-                FROM HDD hdd 
-                WHERE hdd.wattage <= %s
-            """, [result["remaining_wattage"]])
-            result["compatible_hdds"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
+                (SELECT id, 'cpu' AS type FROM CPU WHERE wattage <= %s)
+                UNION ALL
+                (SELECT id, 'gpu' FROM GPU WHERE wattage <= %s)
+                UNION ALL
+                (SELECT id, 'ram' FROM RAM_STICK WHERE wattage <= %s)
+                UNION ALL
+                (SELECT id, 'ssd' FROM SSD WHERE wattage <= %s)
+                UNION ALL
+                (SELECT id, 'hdd' FROM HDD WHERE wattage <= %s)
+            """, [remaining_wattage]*5)
+            result["component_compatibility"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
             return result
-
     except Exception as e:
         logger.error(f"Power Supply compatibility check failed: {e}")
         return {}
 
 
 def check_case_compatibility(case_id: int) -> dict:
-    """
-    case compatibilites with ...
-    """
     try:
         with connection.cursor() as c:
             result = {
-                "compatible_components": [],
-                "total_wattage_supported": 0
+                "total_wattage_supported": 0,
+                "component_compatibility": []
             }
 
-            """ total wattage  """
+            # Get case dimensions and wattage capacity
             c.execute("""
-                SELECT supported_wattage 
+                SELECT depth, height, width, wattage 
                 FROM CASE_TABLE 
                 WHERE id = %s
             """, [case_id])
-            total_wattage = c.fetchone()[0]
-            result["total_wattage_supported"] = total_wattage
+            case_depth, case_height, case_width, case_wattage = c.fetchone()
+            result["total_wattage_supported"] = case_wattage
 
-            """ dementions """
-            c.execute("""
-                SELECT 
-                    p.id, p.category, 
-                    CASE 
-                        WHEN p.category = 'motherboard' THEN m.depth <= ct.depth AND m.height <= ct.height AND m.width <= ct.width
-                        WHEN p.category = 'gpu' THEN g.depth <= ct.depth AND g.height <= ct.height AND g.width <= ct.width
-                        ELSE TRUE
-                    END AS fits
-                FROM PRODUCTS p
-                LEFT JOIN MOTHERBOARD m ON p.id = m.id
-                LEFT JOIN GPU g ON p.id = g.id
-                CROSS JOIN CASE_TABLE ct
-                WHERE ct.id = %s
-            """, [case_id])
-            result["compatible_components"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
+            # Check all components' physical compatibility
+            components = [
+                ('motherboard', 'depth', 'height', 'width'),
+                ('gpu', 'depth', 'height', 'width'),
+                ('cooler', 'depth', 'height', 'width'),
+                ('hdd', 'depth', 'height', 'width'),
+                ('ssd', 'depth', 'height', 'width')
+            ]
+
+            for category, d_col, h_col, w_col in components:
+                c.execute(f"""
+                    SELECT p.id, p.brand, p.model,
+                        ({case_depth} >= {d_col}) AS depth_ok,
+                        ({case_height} >= {h_col}) AS height_ok,
+                        ({case_width} >= {w_col}) AS width_ok
+                    FROM PRODUCTS p
+                    JOIN {category.upper()} comp ON p.id = comp.id
+                    WHERE p.category = %s
+                """, [category])
+                
+                results = [dict(zip([col[0] for col in c.description], row)) 
+                          for row in c.fetchall()]
+                result["component_compatibility"].extend(results)
 
             return result
-
     except Exception as e:
         logger.error(f"Case compatibility check failed: {e}")
         return {}
 
 
 def check_storage_compatibility(storage_id: int, storage_type: str) -> dict:
-    """
-    SSD/HDD compatibilities with PS and case
-    """
     try:
         with connection.cursor() as c:
             result = {
                 "compatible_psus": [],
-                "compatible_cases": []
+                "compatible_cases": [],
+                "remaining_wattage": 0
             }
 
-            """ wattage compatibilities with PS """
-            c.execute(f"""
+            # Get storage device wattage
+            c.execute(f"SELECT wattage FROM {storage_type.upper()} WHERE id = %s", [storage_id])
+            storage_wattage = c.fetchone()[0]
+
+            # Compatible PSUs with enough capacity
+            c.execute("""
                 SELECT ps.id, ps.brand, ps.supported_wattage 
                 FROM POWER_SUPPLY ps
                 WHERE ps.supported_wattage >= (
-                    SELECT wattage FROM {storage_type.upper()} WHERE id = %s
+                    SELECT COALESCE(SUM(wattage), 0) + %s
+                    FROM (
+                        SELECT wattage FROM CPU
+                        UNION ALL SELECT wattage FROM GPU
+                        UNION ALL SELECT wattage FROM MOTHERBOARD
+                        UNION ALL SELECT wattage FROM RAM_STICK
+                        UNION ALL SELECT wattage FROM COOLER
+                    ) AS components
                 )
-            """, [storage_id])
+            """, [storage_wattage])
             result["compatible_psus"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            """ demention compatibilities with case """
+            # Case dimension check
             c.execute(f"""
                 SELECT ct.id, ct.brand 
                 FROM CASE_TABLE ct
@@ -494,9 +471,52 @@ def check_storage_compatibility(storage_id: int, storage_type: str) -> dict:
             """, [storage_id, storage_id, storage_id])
             result["compatible_cases"] = [dict(zip([col[0] for col in c.description], row)) for row in c.fetchall()]
 
-            return result
+            # Calculate remaining wattage
+            c.execute("""
+                SELECT ps.supported_wattage - (
+                    SELECT COALESCE(SUM(wattage), 0) + %s
+                    FROM (
+                        SELECT wattage FROM CPU
+                        UNION ALL SELECT wattage FROM GPU
+                        UNION ALL SELECT wattage FROM MOTHERBOARD
+                        UNION ALL SELECT wattage FROM RAM_STICK
+                        UNION ALL SELECT wattage FROM COOLER
+                    ) AS components
+                )
+                FROM POWER_SUPPLY ps
+                WHERE ps.id IN (
+                    SELECT id FROM POWER_SUPPLY 
+                    WHERE supported_wattage >= (
+                        SELECT COALESCE(SUM(wattage), 0) + %s
+                        FROM (
+                            SELECT wattage FROM CPU
+                            UNION ALL SELECT wattage FROM GPU
+                            UNION ALL SELECT wattage FROM MOTHERBOARD
+                            UNION ALL SELECT wattage FROM RAM_STICK
+                            UNION ALL SELECT wattage FROM COOLER
+                        ) AS components
+                    )
+                )
+            """, [storage_wattage, storage_wattage])
+            result["remaining_wattage"] = c.fetchone()[0] or 0
 
+            return result
     except Exception as e:
         logger.error(f"Storage compatibility check failed: {e}")
         return {}
 
+
+def show_all_product():
+    try: 
+        with connection.cursor() as c:
+            c.execute(""" 
+                SELECT * FROM products;
+            """)
+            result = {
+                "products": [dict(zip([col[0] for col in c.description], row)) 
+                           for row in c.fetchall()]
+            }
+            return result
+    except Exception as e: 
+        logger.error(f"Error in show_all_product: {e}")
+        return {}

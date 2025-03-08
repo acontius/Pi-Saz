@@ -6,6 +6,7 @@ urlpatterns = [
     path('compatibility/cpu-mb/', views.cpu_motherboard_compatibility),
     path('compatibility/ram-mb/', views.ram_motherboard_compatibility),
     path('products/', views.product_info),
+    path('show/', views.show_all_p),
     path('products/<int:pid>/', views.product_info),
     path('compatibility/ram/<int:ram_id>/', views.ram_compatibility),
     path('compatibility/cpu/<int:cpu_id>/', views.cpu_compatibility),

@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS RM_SLOT_COMPATIBLE_WITH (
 );
 
 CREATE TABLE IF NOT EXISTS MC_SOCKET_COMPATIBLE_WITH (
-    Motherboard_id INT,
+    Motherboard_id BIGINT,
     Cpu_id INT,
     PRIMARY KEY (Motherboard_id, Cpu_id),
     FOREIGN KEY (Motherboard_id) REFERENCES MOTHERBOARD(id) ON DELETE CASCADE,
@@ -166,3 +166,8 @@ CREATE TABLE IF NOT EXISTS CC_SOCKET_COMPATIBLE_WITH (
     FOREIGN KEY (Cooler_id) REFERENCES COOLER(id) ON DELETE CASCADE,
     FOREIGN KEY (Cpu_id) REFERENCES CPU(id) ON DELETE CASCADE
 );
+
+
+ALTER TABLE mc_socket_compatible_with
+alter column Motherboard_id
+alter constraint INT -> BIGINT;
