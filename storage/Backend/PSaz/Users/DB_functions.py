@@ -6,7 +6,6 @@ from django.db import connection
 
 logger = logging.getLogger(__name__)
 
-
 def find_user(phone_number):
     """Fetches user ID and hashed password using phone number."""
     try:
@@ -98,7 +97,6 @@ def add_to_referral_code(referrer_code, phone):
     except psycopg2.Error as e:
         logger.error(f"Database error: {e}")
         return {"error": "Database error occurred."}, False
-
 
 def get_user_profile(user_id):
     """Fetches full user profile details including address and referral count."""
@@ -235,3 +233,66 @@ def get_vip_benefits(user_id):
         """, [user_id])
 
         return c.fetchone()
+
+
+def get_user_profile(phone_number):
+    """Fetch complete user profile from database"""
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                c.id, c.first_name, c.last_name, 
+                c.wallet_balance, c.time_stamp, c.referal_code,
+                v.subscription_expiration_time,
+                COUNT(r.refree) AS referral_count
+            FROM client c
+            LEFT JOIN vip_client v ON c.id = v.id
+            LEFT JOIN refers r ON c.id = r.referrer
+            WHERE c.phone_number = %s
+            GROUP BY c.id, v.subscription_expiration_time
+        """, [phone_number])
+        user = dict(zip(
+            [col[0] for col in cursor.description], 
+            cursor.fetchone()
+        )) if cursor.rowcount else None
+
+        if not user:
+            return None
+
+        cursor.execute("""
+            SELECT province, remainer 
+            FROM address 
+            WHERE id = %s
+        """, [user['id']])
+        user['addresses'] = [
+            dict(zip(['province', 'remainer'], row)) 
+            for row in cursor.fetchall()
+        ]
+
+        cursor.execute("""
+            SELECT number, status, time_stamp 
+            FROM shopping_cart 
+            WHERE id = %s
+        """, [user['id']])
+        user['shopping_carts'] = [
+            dict(zip(['number', 'status', 'time_stamp'], row)) 
+            for row in cursor.fetchall()
+        ]
+
+        cursor.execute("""
+            SELECT t.tracking_code, t.status, t.timestamp 
+            FROM transaction t
+            JOIN issued_for i ON t.tracking_code = i.tracking_code
+            WHERE i.id = %s
+            ORDER BY t.timestamp DESC
+            LIMIT 5
+        """, [user['id']])
+        user['transactions'] = [
+            dict(zip(['tracking_code', 'status', 'timestamp'], row)) 
+            for row in cursor.fetchall()
+        ]
+
+        return user
+
+
+
+

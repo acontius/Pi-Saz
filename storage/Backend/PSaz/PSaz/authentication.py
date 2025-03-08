@@ -32,3 +32,8 @@ def JWT_decode(token : str) -> dict :
         raise ValueError('Token has expired !')
     except jwt.InvalidTokenError:
         raise ValueError('Invalid token !')
+
+
+# user_id = 1
+# token = JWT_generate(user_id)
+# print(token)

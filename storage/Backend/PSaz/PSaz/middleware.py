@@ -10,7 +10,7 @@ class JWTAuthentication:
         self.get_response = get_response
 
     def __call__(self, request):
-        public_paths = ['/user/login/', '/user/signup/', '/sazgaryab/products/']
+        public_paths = ['/user/login/','/user/profile/', '/user/signup/', '/sazgaryab/products/']
         if request.path in public_paths:
             return self.get_response(request)
 
@@ -53,7 +53,7 @@ class CheckVipMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        vip_paths = ['/user/vip_detail/', '/sazgaryab/find_compatibles/']
+        vip_paths = ['/sazgaryab/find_compatibles/']
         if request.path in vip_paths:
             user_id = getattr(request, 'user_id', None)
             if not user_id:

@@ -38,9 +38,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'PSaz.middleware.JWTAuthentication',
-    'PSaz.middleware.SignupCheckData',
-    'PSaz.middleware.CheckVipMiddleware'
+    # 'PSaz.middleware.JWTAuthentication',
+    # 'PSaz.middleware.SignupCheckData',
+    # 'PSaz.middleware.CheckVipMiddleware'
 ]
 
 ROOT_URLCONF = 'PSaz.urls'
