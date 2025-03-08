@@ -1,0 +1,67 @@
+<div class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md m-4">
+    <h2 class="text-2xl font-bold text-center">
+      {{ isLogin ? "Welcome Back" : "Create an Account" }}
+    </h2>
+
+    <form [formGroup]="form" (submit)="onSubmit()">
+      <div>
+        <label
+          for="{{ isLogin ? 'phone' : 'new-phone' }}"
+          class="block text-sm font-medium text-gray-700"
+        >
+          Phone Number
+        </label>
+        <input
+          type="tel"
+          id="{{ isLogin ? 'phone' : 'new-phone' }}"
+          required
+          class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+          placeholder="+98 912 345 6789"
+          formControlName="phone"
+        />
+        <div *ngIf="form.get('phone')?.invalid && form.get('phone')?.touched">
+          Phone is required.
+        </div>
+      </div>
+      <div class="mb-8">
+        <label
+          for="{{ isLogin ? 'password' : 'new-password' }}"
+          class="block text-sm font-medium text-gray-700"
+        >
+          Password
+        </label>
+        <input
+          type="password"
+          id="{{ isLogin ? 'password' : 'new-password' }}"
+          required
+          class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+          placeholder="••••••••"
+          formControlName="password"
+        />
+        <div
+          *ngIf="form.get('password')?.invalid && form.get('password')?.touched"
+        >
+          Password must be at least 6 characters long.
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        class="w-full py-2 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-500 transition duration-200"
+      >
+        {{ isLogin ? "Login" : "Sign Up" }}
+      </button>
+    </form>
+
+    <p class="text-center">
+      {{ isLogin ? "Don't have an account?" : "Already have an account?" }}
+      <span
+        (click)="onToggle()"
+        class="text-blue-600 hover:text-blue-500 cursor-pointer"
+      >
+        {{ isLogin ? "Sign up" : "Login" }}
+      </span>
+    </p>
+  </div>
+</div>

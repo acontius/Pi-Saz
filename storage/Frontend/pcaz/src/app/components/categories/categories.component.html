@@ -1,0 +1,53 @@
+<div class="flex flex-col container mx-auto p-4">
+    <h3 class="text-gray-900 text-2xl font-semibold flex items-center mb-4">
+      <mat-icon class="mr-2">category</mat-icon>
+      Category
+    </h3>
+    <swiper-container
+      loop="true"
+      css-mode="true"
+      pagination="true"
+      navigation="true"
+      class="rounded-lg shadow-lg overflow-hidden"
+      breakpoints='{
+        "0": {
+          "slidesPerView": 2
+        },
+        "768": {
+          "slidesPerView": 4
+        }
+      }'
+    >
+      <swiper-slide class="p-2">
+        <div class="aspect-[1] w-full bg-red-700 flex items-center justify-center text-white text-2xl font-bold transition-transform transform hover:scale-105">
+          Slide 1
+        </div>
+      </swiper-slide>
+      <swiper-slide class="p-2">
+        <div class="aspect-[1] w-full bg-green-700 flex items-center justify-center text-white text-2xl font-bold transition-transform transform hover:scale-105">
+          Slide 2
+        </div>
+      </swiper-slide>
+      <swiper-slide class="p-2">
+        <div class="aspect-[1] w-full bg-blue-700 flex items-center justify-center text-white text-2xl font-bold transition-transform transform hover:scale-105">
+          Slide 3
+        </div>
+      </swiper-slide>
+      <swiper-slide class="p-2">
+        <div class="aspect-[1] w-full bg-purple-700 flex items-center justify-center text-white text-2xl font-bold transition-transform transform hover:scale-105">
+          Slide 4
+        </div>
+      </swiper-slide>
+      <swiper-slide class="p-2">
+        <div class="aspect-[1] w-full bg-yellow-700 flex items-center justify-center text-white text-2xl font-bold transition-transform transform hover:scale-105">
+          Slide 5
+        </div>
+      </swiper-slide>
+      <swiper-slide class="p-2">
+        <div class="aspect-[1] w-full bg-pink-700 flex items-center justify-center text-white text-2xl font-bold transition-transform transform hover:scale-105">
+          Slide 6
+        </div>
+      </swiper-slide>
+    </swiper-container>
+  </div>
+  

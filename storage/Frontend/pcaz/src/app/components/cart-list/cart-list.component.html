@@ -1,0 +1,22 @@
+<div class="flex flex-row w-full bg-gray-100 m-[4px] rounded-[10px]">
+  <div
+    class="flex flex-col justify-center items-center w-[25vw] bg-gray-300 rounded-[10px] p-4 md:w-[10vw]"
+  >
+    <span class="w-full bg-blue-700 p-2 rounded-[10px] text-white text-center">cart {{ cartIndex }}</span>
+    <button class="bg-red-700 w-full p-2 mt-2 rounded-[10px] text-white"><mat-icon class="pt-1">delete_forever</mat-icon>delete</button
+    >
+    <button class="bg-green-700 w-full p-2 mt-2 rounded-[10px] text-white"><mat-icon class="pt-2">payments</mat-icon>pay</button
+        >
+  </div>
+  <div class="flex-1 overflow-x-scroll">
+    <ul class="flex items-center justify-between p-4">
+      <li class="p-2"><app-cart-list-item /></li>
+      <li class="p-2"><app-cart-list-item /></li>
+      <li class="p-2"><app-cart-list-item /></li>
+      <li class="p-2"><app-cart-list-item /></li>
+      <li class="p-2"><app-cart-list-item /></li>
+      <li class="p-2"><app-cart-list-item /></li>
+      <li class="p-2"><app-cart-list-item /></li>
+    </ul>
+  </div>
+</div>

@@ -1,0 +1,72 @@
+<form
+  [formGroup]="userForm"
+  (ngSubmit)="onSubmit()"
+  class="max-w-lg mx-auto p-6 bg-white rounded-lg shadow-md"
+>
+  <h2 class="text-2xl font-bold mb-4">User Form</h2>
+
+  <div class="mb-4">
+    <label for="firstName" class="block text-sm font-medium text-gray-700"
+      >First Name:</label
+    >
+    <input
+      id="firstName"
+      formControlName="firstName"
+      class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+    />
+  </div>
+
+  <div class="mb-4">
+    <label for="lastName" class="block text-sm font-medium text-gray-700"
+      >Last Name:</label
+    >
+    <input
+      id="lastName"
+      formControlName="lastName"
+      class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+    />
+  </div>
+
+  <div class="mb-4">
+    <label for="phone" class="block text-sm font-medium text-gray-700"
+      >Phone Number:</label
+    >
+    <input
+      id="phone"
+      formControlName="phone"
+      class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+    />
+  </div>
+
+  <!-- @for (item of ; track $index) {}
+  { -->
+  <div class="mb-4">
+    <label for="province" class="block text-sm font-medium text-gray-700"
+      >Province:</label
+    >
+    <input
+      id="province"
+      formControlName="province"
+      class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+    />
+  </div>
+  <!-- } -->
+
+  <div class="mb-4">
+    <label for="address" class="block text-sm font-medium text-gray-700"
+      >Address:</label
+    >
+    <input
+      id="address"
+      formControlName="address"
+      class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+    />
+  </div>
+
+  <button
+    type="submit"
+    class="w-full bg-blue-500 text-white font-bold py-2 rounded hover:bg-blue-600 transition duration-200"
+  >
+    Submit
+  </button>
+</form>

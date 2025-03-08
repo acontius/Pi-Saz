@@ -1,0 +1,24 @@
+<div class="flex flex-col bg-white border border-gray-200 rounded-lg shadow-lg transition-transform transform hover:scale-105 p-4">
+  <div class="image-container mb-4">
+    <img
+      class="image w-full h-48 object-cover rounded-lg shadow-md"
+      [src]="'assets/images/' + product.img + '.jpg'"
+      alt="product image"
+    />
+  </div>
+  <div class="flex flex-col justify-between flex-grow">
+    <h5 class="name text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors mb-2">{{ product.name }}</h5>
+    <p class="price text-xl font-bold text-gray-900">
+      <span class="price-before text-green-600">{{ product.price}}</span>
+    </p>
+    <div class="flex items-center space-x-3 mt-4">
+      @if(product.count > 0) {
+        <button (click)="onIncrement()" class="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition">+</button>
+        <span class="text-lg font-medium">{{ product.count }}</span>
+        <button (click)="onDecrement()" class="bg-red-600 text-white px-4 py-2 rounded-lg shadow hover:bg-red-700 transition">-</button>
+      } @else {
+        <button (click)="onIncrement()" class="bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition w-full">Add to Cart</button>
+      }
+    </div>
+  </div>
+</div>
