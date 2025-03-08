@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS PRODUCTS (
     model VARCHAR(255)
 );
 
-
 CREATE TABLE IF NOT EXISTS HDD (
     id INT PRIMARY KEY,
     rotational_speed INT CHECK (rotational_speed >= 0),
@@ -345,10 +344,6 @@ CREATE TABLE IF NOT EXISTS ADDED_TO(
     FOREIGN KEY(Cart_number) REFERENCES LOCKED_SHOPPING_CART(Cart_number) ON DELETE CASCADE
 );
 
--- creating tables in order P then C
-\i Products.sql
-\i Clients.sql
-\i Triggers.sql
 CREATE EXTENSION pg_cron;
 
 -- Referal invite's handling 

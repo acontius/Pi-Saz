@@ -7,8 +7,15 @@ CREATE TABLE IF NOT EXISTS CLIENT(
     Time_stamp     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     Referal_code   VARCHAR(10) UNIQUE,
     is_vip         BOOLEAN DEFAULT FALSE,
-    userPassword   VARCHAR(128) NOT NULL
 );
+
+
+-- alter table CLIENT
+-- drop column userPassword;
+
+-- INSERT into CLIENT(Phone_number, First_name, Last_name, Wallet_balance, is_vip)
+-- VALUES ('09180048517', 'amin', 'shahabi', 285000, True)
+
 
 CREATE TABLE IF NOT EXISTS VIP_CLIENT(
     ID                           INT PRIMARY KEY,
@@ -183,4 +190,5 @@ CREATE TABLE IF NOT EXISTS ADDED_TO(
     FOREIGN KEY(Locked_number) REFERENCES LOCKED_SHOPPING_CART(Number) ON DELETE CASCADE,
     FOREIGN KEY(Cart_number) REFERENCES LOCKED_SHOPPING_CART(Cart_number) ON DELETE CASCADE
 );
+
 
