@@ -1,20 +1,37 @@
-BEGIN;
+CREATE EXTENSION pg_cron;
 
 -- Referal invite's handling 
 CREATE OR REPLACE FUNCTION Ref_trigger_function() RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.Referal_code IS NOT NULL THEN 
+        -- Ensure the referrer exists
+        IF NOT EXISTS (SELECT 1 FROM CLIENT WHERE Referal_code = NEW.Referal_code) THEN
+            RAISE EXCEPTION 'Invalid referral code!';
+        END IF;
+
+        -- Prevent self-referral
+        IF NEW.Referal_code = (SELECT Referal_code FROM CLIENT WHERE ID = NEW.ID) THEN
+            RAISE EXCEPTION 'You cannot refer yourself!';
+        END IF;
+
+        -- Insert into REFERS table
         INSERT INTO REFERS(Refree, Referrer)
         VALUES(
             NEW.ID,
-            NEW.Referal_code
+            (SELECT ID FROM CLIENT WHERE Referal_code = NEW.Referal_code)
         );
-        PERFORM Calc_Referal_DISCOUNT(NEW.ID,NEW.Referal_code);
+
+        -- Calculate referral discount
+        PERFORM Calc_Referal_DISCOUNT(NEW.ID, (SELECT ID FROM CLIENT WHERE Referal_code = NEW.Referal_code));
     END IF;
     RETURN NEW;
 END;
-$$ 
-LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER Referal_trigger
+AFTER INSERT ON CLIENT 
+FOR EACH ROW
+EXECUTE FUNCTION Ref_trigger_function();
 
 CREATE TRIGGER Referal_trigger
 AFTER INSERT ON CLIENT 
@@ -23,17 +40,16 @@ EXECUTE FUNCTION Ref_trigger_function();
 
 
 -- Trigger to Prevent Adding Products to Locked Carts
-CREATE OR REPLACE FUNCTION Not_leeting_locked_shoppingCarts() 
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION Not_leeting_locked_shoppingCarts() RETURNS TRIGGER AS $$
 DECLARE
     cart_status cart_status;
 BEGIN
     SELECT STATUS INTO cart_status 
     FROM SHOPPING_CART 
-    WHERE ID = NEW.Cart_ID; 
+    WHERE Number = NEW.Cart_number; 
 
     IF cart_status IN ('locked', 'blocked') THEN 
-        RAISE EXCEPTION 'BLOCKED OR LOCKED CCARTS CANT TAKE ANY ACTIONS !';
+        RAISE EXCEPTION 'Blocked or locked carts cannot take any actions!';
     END IF;
 
     RETURN NEW;
@@ -127,24 +143,18 @@ EXECUTE FUNCTION Cart_count_limits();
 CREATE OR REPLACE FUNCTION Prevent_Out_stock() RETURNS TRIGGER AS $$
 DECLARE
     quantity INT;
-
 BEGIN 
-    -- TG_OP is PSQL internal function that tells us which operationg is calling the trigger 
-    IF NEW.Product_ID IS DISTINCT FROM OLD.Product_ID OR TG_OP = 'INSERT' THEN
-    
     SELECT stock_count INTO quantity
     FROM PRODUCTS
-    WHERE ID = NEW.ID;
+    WHERE ID = NEW.Product_ID;
     
-        IF quantity <= 0 THEN 
-            RAISE EXCEPTION 'ITEMS THAT ARE OUT OF STOCK CANT TAKE ANY ACTIONS TILL REFILL';
-        END IF;
+    IF quantity <= 0 THEN 
+        RAISE EXCEPTION 'Items that are out of stock cannot be added to the cart!';
     END IF;
-        RETURN NEW;
 
-    END;
-$$ 
-LANGUAGE plpgsql;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER stock_controller
 BEFORE INSERT OR UPDATE ON ADDED_TO
@@ -185,12 +195,13 @@ DECLARE
     discount_type       VARCHAR(10);
     max_discount        BIGINT := 5000000;
 BEGIN
-    SELECT discount_code.Amount, discount_code.discount_type INTO discount_amount, discount_type
+    SELECT Amount, discount_type INTO discount_amount, discount_type
     FROM DISCOUNT_CODE
     WHERE Code = NEW.Code;
 
-    SELECT SUM(P.current_price) INTO cart_total
-    FROM ADDED_TO A JOIN PRODUCTS P ON A.Product_ID = P.ID
+    SELECT SUM(P.current_price * A.Quantity) INTO cart_total
+    FROM ADDED_TO A 
+    JOIN PRODUCTS P ON A.Product_ID = P.ID
     WHERE A.Cart_number = NEW.Cart_number;
 
     IF discount_type = 'percentage' THEN
@@ -202,7 +213,7 @@ BEGIN
 
     ELSIF discount_type = 'fixed' THEN
         IF discount_amount > cart_total THEN
-            RAISE EXCEPTION 'Fixed Discount Cannot Be More Than Total Amount Of Cart!';
+            RAISE EXCEPTION 'Fixed discount cannot be more than the total amount of the cart!';
         END IF;
     END IF;
 
@@ -340,6 +351,9 @@ BEGIN
     current_id := referrer_id;
     
     WHILE current_id IS NOT NULL LOOP
+        IF new_user_id = current_id THEN 
+            RAISE EXCEPTION 'YOU CANT REFAER YOURSELF ! ';
+        END IF;
         discount_percentage := 50 / (2 ^ (current_level - 1));
 
         IF discount_percentage < 1 THEN 
@@ -363,9 +377,6 @@ BEGIN
         FROM CLIENT 
         WHERE ID = current_id;
 
-        IF new_user_id = current_id THEN 
-            RAISE EXCEPTION 'CANT REFARE YOURSELF !';
-        END IF;
 
         EXIT WHEN current_id IS NULL;
         current_level := current_level + 1;
@@ -419,20 +430,28 @@ AFTER DELETE ON VIP_CLIENT
 FOR EACH ROW
 EXECUTE FUNCTION Disable_Extra_Carts();
 
-
 CREATE OR REPLACE FUNCTION Monthly_15Percent_Refund()
 RETURNS VOID AS $$
 BEGIN
-    UPDATE CLIENT
-    SET Wallet_balance = Wallet_balance + (
-        SELECT SUM(P.current_price * 0.15)
-        FROM TRANSACTION T
+    UPDATE CLIENT C
+    SET Wallet_balance = Wallet_balance + refund_data.refund_amount
+    FROM (
+        SELECT 
+            S.Client_ID,
+            SUM(P.current_price * A.Quantity * 0.15) AS refund_amount
+        FROM 
+            TRANSACTION T
         JOIN ISSUED_FOR I ON T.Tracking_code = I.Tracking_code
-        JOIN ADDED_TO A ON I.Cart_number = A.Cart_number
+        JOIN SHOPPING_CART S ON I.Cart_number = S.Number
+        JOIN ADDED_TO A ON S.Number = A.Cart_number
         JOIN PRODUCTS P ON A.Product_ID = P.ID
-        WHERE T.STATUS = 'Successful'
-          AND T.Timestamp >= NOW() - INTERVAL '1 MONTH'
-    );
+        WHERE 
+            T.STATUS = 'Successful'
+            AND T.Timestamp >= DATE_TRUNC('MONTH', CURRENT_DATE - INTERVAL '1 MONTH')
+            AND T.Timestamp < DATE_TRUNC('MONTH', CURRENT_DATE)
+        GROUP BY S.Client_ID
+    ) AS refund_data
+    WHERE C.ID = refund_data.Client_ID;
 END;
 $$ LANGUAGE plpgsql;
 

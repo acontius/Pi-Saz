@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE TABLE IF NOT EXISTS PRODUCTS (
     id Serial PRIMARY KEY,
     category CHAR(255),
@@ -9,6 +7,13 @@ CREATE TABLE IF NOT EXISTS PRODUCTS (
     brand VARCHAR(255),
     model VARCHAR(255)
 );
+
+INSERT into PRODUCTS (category, current_price, stock_count, brand, model)
+VALUES ("HDD", 3, 1, "asus", )
+
+
+INSERT INTO PRODUCTS(category, current_price, stock_count, brand, model) 
+VALUES ("TEST", )
 
 
 CREATE TABLE IF NOT EXISTS HDD (
@@ -161,5 +166,3 @@ CREATE TABLE IF NOT EXISTS CC_SOCKET_COMPATIBLE_WITH (
     FOREIGN KEY (Cooler_id) REFERENCES COOLER(id) ON DELETE CASCADE,
     FOREIGN KEY (Cpu_id) REFERENCES CPU(id) ON DELETE CASCADE
 );
-
-COMMIT;

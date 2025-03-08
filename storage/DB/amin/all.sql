@@ -1,271 +1,3 @@
-BEGIN;
-
-CREATE TABLE IF NOT EXISTS CLIENT(
-    ID             SERIAL PRIMARY KEY,
-    Phone_number   VARCHAR(11) UNIQUE NOT NULL,
-    First_name     VARCHAR(255) NOT NULL,
-    Last_name      VARCHAR(255) NOT NULL,
-    Wallet_balance BIGINT CHECK(Wallet_balance >= 0) DEFAULT 0,
-    Time_stamp     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    Referal_code   INT UNIQUE,
-    userPassword   VARCHAR(128) NOT NULL
-);
-
--- ALTER TABLE CLIENT
--- ADD COLUMN userPassword VARCHAR(128) DEFAULT 'temporary_password' NOT NULL;
-
-
--- ALTER TABLE CLIENT ALTER COLUMN userPassword DROP DEFAULT;
-
-
-CREATE TABLE IF NOT EXISTS VIP_CLIENT(
-    ID                           INT PRIMARY KEY,
-    Subscription_expiration_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    
-    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE
-);
-
-
-CREATE TABLE IF NOT EXISTS REFERS(
-    Refree   INT PRIMARY KEY,
-    Referrer INT NOT NULL,
-
-    FOREIGN KEY(Refree) REFERENCES CLIENT(ID) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY(Referrer) REFERENCES CLIENT(ID) ON DELETE CASCADE ON UPDATE CASCADE 
-); 
-
-
-CREATE TABLE IF NOT EXISTS ADDRESS(
-    ID       INT NOT NULL,
-    Province VARCHAR(255) NOT NULL,
-    Remainer VARCHAR(511) NOT NULL,
-    
-    PRIMARY KEY(ID,Province,Remainer) ,
-    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE
-);
-
-
-CREATE TYPE cart_status AS ENUM(
-    'archived',
-    'unlocked',
-    'locked',
-    'ready'
-);
-
-
-CREATE TABLE IF NOT EXISTS SHOPPING_CART (
-    ID     INT NOT NULL,
-    Number VARCHAR(16) NOT NULL UNIQUE,
-    STATUS cart_status NOT NULL (STATUS <> 'locked') DEFAULT 'unlocked',
-
-    PRIMARY KEY(ID,Number),
-    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE
-);
-
-
-CREATE TABLE IF NOT EXISTS LOCKED_SHOPPING_CART(
-    ID          INT NOT NULL,
-    Number      VARCHAR(16) NOT NULL UNIQUE,
-    Cart_number VARCHAR(16) NOT NULL UNIQUE,
-    Timestamp   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-
-    PRIMARY KEY(ID,Cart_number,Number),
-    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,
-    FOREIGN KEY(Cart_number) REFERENCES SHOPPING_CART(Number) ON DELETE CASCADE
-);
-
-
-CREATE TABLE IF NOT EXISTS DISCOUNT_CODE(
-    Code            SERIAL NOT NULL PRIMARY KEY UNIQUE,
-    Amount          BIGINT CHECK(Amount > 0) NOT NULL,
-    Usage_Limit     BIGINT CHECK(Usage_Limit > 0) NOT NULL,
-    Usage_count     SMALLINT NOT NULL ,
-    Expiration_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    discount_type   VARCHAR(10) CHECK (discount_type IN('fixed', 'percentage'))
-);
-
-
-CREATE TABLE IF NOT EXISTS PRIVATE_CODE(
-    Code      INT NOT NULL PRIMARY KEY UNIQUE,
-    ID        INT NOT NULL UNIQUE,
-    Timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,
-    FOREIGN KEY (Code) REFERENCES DISCOUNT_CODE(Code) ON DELETE CASCADE
-    );
-
-
-CREATE TABLE IF NOT EXISTS PUBLIC_CODE(
-    Code INT NOT NULL PRIMARY KEY,
-        
-    FOREIGN KEY(Code) REFERENCES DISCOUNT_CODE(Code) ON DELETE CASCADE
-); 
-
-
-CREATE TYPE TRANSACTION_STATUS AS ENUM(
-    'Semi-Successful',
-    'Successful',
-    'Failed'
-);
-
-
-CREATE TABLE IF NOT EXISTS TRANSACTION(
-    Timestamp     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    Tracking_code VARCHAR(20) PRIMARY KEY UNIQUE,
-    STATUS        TRANSACTION_STATUS NOT NULL
-);
-
-
-CREATE TABLE IF NOT EXISTS BANK_TRANSACTION(
-    Tracking_code VARCHAR(20) PRIMARY KEY UNIQUE,
-    Card_number   VARCHAR(16) NOT NULL,
-
-    FOREIGN KEY(Tracking_code) REFERENCES TRANSACTION(Tracking_code) ON DELETE CASCADE
-);
-
-
-CREATE TABLE IF NOT EXISTS WALLET_TRANSACTION(
-    Tracking_code VARCHAR(20) NOT NULL UNIQUE PRIMARY KEY,
-
-    FOREIGN KEY(Tracking_code) REFERENCES TRANSACTION(Tracking_code) ON DELETE CASCADE
-);
-
-
-CREATE TABLE IF NOT EXISTS DEPOSITS_INTO_WALLET(
-    Tracking_code VARCHAR(20) PRIMARY KEY ,
-    ID            INT NOT NULL,
-    Amount        BIGINT CHECK(Amount > 0) NOT NULL,
-
-    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY(Tracking_code) REFERENCES TRANSACTION(Tracking_code) ON DELETE CASCADE ON UPDATE CASCADE
-);
-
-
-CREATE TABLE IF NOT EXISTS SUBSCRIBES(
-    Tracking_code VARCHAR(20) NOT NULL PRIMARY KEY UNIQUE,
-    ID            INT NOT NULL,
-
-    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,
-    FOREIGN KEY(Tracking_code) REFERENCES TRANSACTION(Tracking_code) ON DELETE CASCADE ON UPDATE CASCADE
-);
-
-
-CREATE TABLE IF NOT EXISTS APPLIED_TO(
-    ID            INT NOT NULL UNIQUE,
-    Code          INT NOT NULL UNIQUE,
-    Cart_number   VARCHAR(16) NOT NULL UNIQUE,
-    Locked_number VARCHAR(16) NOT NULL UNIQUE,
-    Timestamp     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-
-    PRIMARY KEY(ID,Code,Cart_number,Locked_number),
-    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,
-    FOREIGN KEY(Code) REFERENCES DISCOUNT_CODE(Code) ON DELETE CASCADE,
-    FOREIGN KEY(Locked_number) REFERENCES LOCKED_SHOPPING_CART(Number) ON DELETE CASCADE,
-    FOREIGN KEY(Cart_number) REFERENCES LOCKED_SHOPPING_CART(Cart_number) ON DELETE CASCADE
-    );
-
-
-CREATE TABLE IF NOT EXISTS ISSUED_FOR(
-    ID            INT NOT NULL UNIQUE,
-    Cart_number   VARCHAR(16) NOT NULL UNIQUE,
-    Locked_number VARCHAR(16) NOT NULL UNIQUE,
-    Tracking_code VARCHAR(20) NOT NULL PRIMARY KEY UNIQUE,
-
-    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,
-    FOREIGN KEY(Tracking_code) REFERENCES TRANSACTION(Tracking_code) ON DELETE CASCADE,
-    FOREIGN KEY(Locked_number) REFERENCES LOCKED_SHOPPING_CART(Number) ON DELETE CASCADE,
-    FOREIGN KEY(Cart_number) REFERENCES LOCKED_SHOPPING_CART(Cart_number) ON DELETE CASCADE
-);
-
-
-CREATE TABLE IF NOT EXISTS ADDED_TO(
-    ID            INT NOT NULL UNIQUE,
-    Product_ID    INT NOT NULL UNIQUE,
-    Cart_number   VARCHAR(16) NOT NULL UNIQUE,
-    Locked_number VARCHAR(16) NOT NULL UNIQUE,
-
-    PRIMARY KEY(ID,Product_ID,Cart_number,Locked_number),
-    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,
-    FOREIGN KEY(Product_ID) REFERENCES PRODUCTS(ID) ON DELETE CASCADE,
-    FOREIGN KEY(Locked_number) REFERENCES LOCKED_SHOPPING_CART(Number) ON DELETE CASCADE,
-    FOREIGN KEY(Cart_number) REFERENCES LOCKED_SHOPPING_CART(Cart_number) ON DELETE CASCADE
-);
-
-
-COMMIT;create DATABASE psaz;
-\c psaz;-- creating DataBase
-\i DataBase.sql
-
--- creating tables in order P then C
-\i Products.sql
-\i Clients.sql
-
--- creating constraints 
--- referal handling for all levels of inviters 
-CREATE OR REPLACE FUNCTION Calc_Referal_DISCOUNT(new_user_id INT, referrer_id INT) 
-RETURNS VOID AS $$
-DECLARE
-    current_id          INT;
-    current_level       INT := 1;
-    discount_percentage FLOAT;
-    discount_amount     BIGINT;
-    discount_code_id    INT;  
-
-BEGIN
-    current_id := referrer_id;
-    
-    WHILE current_id IS NOT NULL LOOP
-        discount_percentage := 50 / (2 ^ (current_level - 1));
-
-        IF discount_percentage < 1 THEN 
-            discount_amount := 50000;
-        ELSE 
-            discount_amount := (1000000 * discount_percentage) / 100;
-        END IF;
-
-        INSERT INTO DISCOUNT_CODE (Amount, Usage_Limit, Usage_count, Expiration_date)
-        VALUES (
-        discount_amount,
-        1, 
-        1,
-        CURRENT_TIMESTAMP + INTERVAL
-        '7 Days'
-        )
-        RETURNING Code INTO discount_code_id;
-
-        INSERT INTO PRIVATE_CODE (Code, ID)
-        VALUES (discount_code_id, current_id);
-
-        SELECT Referrer INTO current_id FROM REFERS WHERE Refree = current_id;
-        
-        IF NEW.Referal_code = NEW.ID THEN RAISE EXCEPTION 'A user cannot refer themselves';
-        END IF;
-
-        EXIT WHEN current_id IS NULL;
-
-        current_level := current_level + 1;
-    END LOOP;
-END;
-$$ 
-LANGUAGE plpgsql;
-
--- accepted test case is :
--- INSERT INTO CLIENT (Phone_number, First_name, Last_name, Referal_code)
--- VALUES ('09123456789', 'Ali', 'Ahmadi', NULL);
-
-
---failed testcase are :
--- INSERT INTO CLIENT (Phone_number, First_name, Last_name, Referal_code)
--- VALUES ('09351234567', 'Test', 'User', 9999);
-
--- INSERT INTO CLIENT (Phone_number, First_name, Last_name, Referal_code)
--- VALUES ('09129999999', 'Duplicate', 'Test', 2);
-
--- Self-referral (should fail)
--- INSERT INTO CLIENT (Phone_number, First_name, Last_name, Referal_code)
--- VALUES ('09127777777', 'Self', 'Loop', 6);
-BEGIN;
-
 CREATE TABLE IF NOT EXISTS PRODUCTS (
     id Serial PRIMARY KEY,
     category CHAR(255),
@@ -278,7 +10,7 @@ CREATE TABLE IF NOT EXISTS PRODUCTS (
 
 
 CREATE TABLE IF NOT EXISTS HDD (
-    id BIGINT PRIMARY KEY,
+    id INT PRIMARY KEY,
     rotational_speed INT CHECK (rotational_speed >= 0),
     wattage INT CHECK (wattage >= 0),
     capacity INT CHECK (capacity >= 0),
@@ -287,6 +19,7 @@ CREATE TABLE IF NOT EXISTS HDD (
     width FLOAT CHECK (width >= 0.0),
     FOREIGN KEY (id) REFERENCES PRODUCTS(id) ON DELETE CASCADE
 );
+
 
 CREATE TABLE IF NOT EXISTS CASE_TABLE (
     id BIGINT PRIMARY KEY,
@@ -426,24 +159,230 @@ CREATE TABLE IF NOT EXISTS CC_SOCKET_COMPATIBLE_WITH (
     FOREIGN KEY (Cooler_id) REFERENCES COOLER(id) ON DELETE CASCADE,
     FOREIGN KEY (Cpu_id) REFERENCES CPU(id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS CLIENT(
+    ID             SERIAL PRIMARY KEY,
+    Phone_number   VARCHAR(11) UNIQUE NOT NULL,
+    First_name     VARCHAR(255) NOT NULL,
+    Last_name      VARCHAR(255) NOT NULL,
+    Wallet_balance BIGINT CHECK(Wallet_balance >= 0) DEFAULT 0,
+    Time_stamp     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    Referal_code   VARCHAR(10) UNIQUE,
+    is_vip         BOOLEAN DEFAULT FALSE,
+    userPassword   VARCHAR(128) NOT NULL
+);
 
-COMMIT;BEGIN;
+CREATE TABLE IF NOT EXISTS VIP_CLIENT(
+    ID                           INT PRIMARY KEY,
+    Subscription_expiration_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    
+    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS REFERS(
+    Refree   INT PRIMARY KEY,
+    Referrer INT NOT NULL,
+
+    FOREIGN KEY(Refree) REFERENCES CLIENT(ID) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY(Referrer) REFERENCES CLIENT(ID) ON DELETE CASCADE ON UPDATE CASCADE 
+); 
+
+
+CREATE TABLE IF NOT EXISTS ADDRESS(
+    ID       INT NOT NULL,
+    Province VARCHAR(255) NOT NULL,
+    Remainer VARCHAR(511) NOT NULL,
+    
+    PRIMARY KEY(ID,Province,Remainer) ,
+    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE
+);
+
+CREATE TYPE cart_status AS ENUM(
+    'archived',   -- After a period or end of proccess 
+    'unlocked',   -- Open to use
+    'locked',     -- After first submit
+    'ready',      -- Ready to final submition
+    'blocked'     -- after 3 days no paying 
+);
+
+CREATE TABLE IF NOT EXISTS SHOPPING_CART (
+    Blocked_until TIMESTAMP,
+    ID            INT NOT NULL,
+    Number        VARCHAR(16) NOT NULL UNIQUE,
+    Time_stamp    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, 
+    STATUS        cart_status NOT NULL CHECK(STATUS <> 'locked') DEFAULT 'unlocked',
+
+    PRIMARY KEY(ID,Number),
+    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS LOCKED_SHOPPING_CART(
+    ID          INT NOT NULL,
+    Number      VARCHAR(16) NOT NULL UNIQUE,
+    Cart_number VARCHAR(16) NOT NULL UNIQUE,
+    Timestamp   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY(ID,Cart_number,Number),
+    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,
+    FOREIGN KEY(Cart_number) REFERENCES SHOPPING_CART(Number) ON DELETE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS DISCOUNT_CODE(
+    Code            SERIAL NOT NULL PRIMARY KEY UNIQUE,
+    Amount          BIGINT CHECK(Amount > 0) NOT NULL,
+    Usage_Limit     BIGINT CHECK(Usage_Limit > 0) NOT NULL,
+    Usage_count     SMALLINT NOT NULL ,
+    Expiration_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    discount_type   VARCHAR(10) CHECK (discount_type IN('fixed', 'percentage'))
+);
+
+CREATE TABLE IF NOT EXISTS PRIVATE_CODE(
+    Code      INT NOT NULL PRIMARY KEY UNIQUE,
+    ID        INT NOT NULL UNIQUE,
+    Timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP + INTERVAL '10 days',
+
+    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,
+    FOREIGN KEY(Code) REFERENCES DISCOUNT_CODE(Code) ON DELETE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS PUBLIC_CODE(
+    Code INT NOT NULL PRIMARY KEY,
+        
+    FOREIGN KEY(Code) REFERENCES DISCOUNT_CODE(Code) ON DELETE CASCADE
+); 
+
+
+CREATE TYPE TRANSACTION_STATUS AS ENUM(
+    'Semi-Successful',
+    'Successful',
+    'Failed'
+);
+
+
+CREATE TABLE IF NOT EXISTS TRANSACTION(
+    Timestamp     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    Tracking_code VARCHAR(20) PRIMARY KEY UNIQUE,
+    STATUS        TRANSACTION_STATUS NOT NULL
+);
+
+
+CREATE TABLE IF NOT EXISTS BANK_TRANSACTION(
+    Tracking_code VARCHAR(20) PRIMARY KEY UNIQUE,
+    Card_number   VARCHAR(16) NOT NULL,
+
+    FOREIGN KEY(Tracking_code) REFERENCES TRANSACTION(Tracking_code) ON DELETE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS WALLET_TRANSACTION(
+    Tracking_code VARCHAR(20) NOT NULL UNIQUE PRIMARY KEY,
+
+    FOREIGN KEY(Tracking_code) REFERENCES TRANSACTION(Tracking_code) ON DELETE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS DEPOSITS_INTO_WALLET(
+    Tracking_code VARCHAR(20) PRIMARY KEY ,
+    ID            INT NOT NULL,
+    Amount        BIGINT CHECK(Amount > 0) NOT NULL,
+
+    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY(Tracking_code) REFERENCES TRANSACTION(Tracking_code) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS SUBSCRIBES(
+    Tracking_code VARCHAR(20) NOT NULL PRIMARY KEY UNIQUE,
+    ID            INT NOT NULL,
+
+    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,
+    FOREIGN KEY(Tracking_code) REFERENCES TRANSACTION(Tracking_code) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS APPLIED_TO(
+    ID            INT NOT NULL UNIQUE,
+    Code          INT NOT NULL UNIQUE,
+    Cart_number   VARCHAR(16) NOT NULL UNIQUE,
+    Locked_number VARCHAR(16) NOT NULL UNIQUE,
+    Timestamp     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY(ID,Code,Cart_number,Locked_number),
+    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,
+    FOREIGN KEY(Code) REFERENCES DISCOUNT_CODE(Code) ON DELETE CASCADE,
+    FOREIGN KEY(Locked_number) REFERENCES LOCKED_SHOPPING_CART(Number) ON DELETE CASCADE,
+    FOREIGN KEY(Cart_number) REFERENCES LOCKED_SHOPPING_CART(Cart_number) ON DELETE CASCADE
+    );
+
+
+CREATE TABLE IF NOT EXISTS ISSUED_FOR(
+    ID            INT NOT NULL UNIQUE,
+    Cart_number   VARCHAR(16) NOT NULL UNIQUE,
+    Locked_number VARCHAR(16) NOT NULL UNIQUE,
+    Tracking_code VARCHAR(20) NOT NULL PRIMARY KEY UNIQUE,
+
+    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,
+    FOREIGN KEY(Tracking_code) REFERENCES TRANSACTION(Tracking_code) ON DELETE CASCADE,
+    FOREIGN KEY(Locked_number) REFERENCES LOCKED_SHOPPING_CART(Number) ON DELETE CASCADE,
+    FOREIGN KEY(Cart_number) REFERENCES LOCKED_SHOPPING_CART(Cart_number) ON DELETE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS ADDED_TO(
+    ID            INT NOT NULL UNIQUE,
+    Product_ID    INT NOT NULL UNIQUE,
+    Cart_number   VARCHAR(16) NOT NULL UNIQUE,
+    Locked_number VARCHAR(16) NOT NULL UNIQUE,
+    Quantity      INT CHECK (Quantity > 0) DEFAULT 1,
+
+    PRIMARY KEY(ID,Product_ID,Cart_number,Locked_number),
+    FOREIGN KEY(ID) REFERENCES CLIENT(ID) ON DELETE CASCADE,
+    FOREIGN KEY(Product_ID) REFERENCES PRODUCTS(ID) ON DELETE CASCADE,
+    FOREIGN KEY(Locked_number) REFERENCES LOCKED_SHOPPING_CART(Number) ON DELETE CASCADE,
+    FOREIGN KEY(Cart_number) REFERENCES LOCKED_SHOPPING_CART(Cart_number) ON DELETE CASCADE
+);
+
+-- creating tables in order P then C
+\i Products.sql
+\i Clients.sql
+\i Triggers.sql
+CREATE EXTENSION pg_cron;
 
 -- Referal invite's handling 
 CREATE OR REPLACE FUNCTION Ref_trigger_function() RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.Referal_code IS NOT NULL THEN 
+        -- Ensure the referrer exists
+        IF NOT EXISTS (SELECT 1 FROM CLIENT WHERE Referal_code = NEW.Referal_code) THEN
+            RAISE EXCEPTION 'Invalid referral code!';
+        END IF;
+
+        -- Prevent self-referral
+        IF NEW.Referal_code = (SELECT Referal_code FROM CLIENT WHERE ID = NEW.ID) THEN
+            RAISE EXCEPTION 'You cannot refer yourself!';
+        END IF;
+
+        -- Insert into REFERS table
         INSERT INTO REFERS(Refree, Referrer)
         VALUES(
             NEW.ID,
-            NEW.Referal_code
+            (SELECT ID FROM CLIENT WHERE Referal_code = NEW.Referal_code)
         );
-        PERFORM Calc_Referal_DISCOUNT(NEW.ID,NEW.Referal_code);
+
+        -- Calculate referral discount
+        PERFORM Calc_Referal_DISCOUNT(NEW.ID, (SELECT ID FROM CLIENT WHERE Referal_code = NEW.Referal_code));
     END IF;
     RETURN NEW;
 END;
-$$ 
-LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER Referal_trigger
+AFTER INSERT ON CLIENT 
+FOR EACH ROW
+EXECUTE FUNCTION Ref_trigger_function();
 
 CREATE TRIGGER Referal_trigger
 AFTER INSERT ON CLIENT 
@@ -455,20 +394,18 @@ EXECUTE FUNCTION Ref_trigger_function();
 CREATE OR REPLACE FUNCTION Not_leeting_locked_shoppingCarts() RETURNS TRIGGER AS $$
 DECLARE
     cart_status cart_status;
-
 BEGIN
     SELECT STATUS INTO cart_status 
     FROM SHOPPING_CART 
-    WHERE Number = NEW.Cart_number;
+    WHERE Number = NEW.Cart_number; 
 
-    IF cart_status = 'locked' THEN 
-        RAISE EXCEPTION 'LOCKED CARTS CAN NOT TAKE ANY ACTIONS(ADD TO)';
+    IF cart_status IN ('locked', 'blocked') THEN 
+        RAISE EXCEPTION 'Blocked or locked carts cannot take any actions!';
     END IF;
 
     RETURN NEW;
 END;
-$$
-LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER Add_to_cart_Limits
 BEFORE INSERT ON ADDED_TO
@@ -524,57 +461,51 @@ EXECUTE FUNCTION No_transactions_on_lockedShoppingcarts();
 
 
 -- Control The Number Of Carts
-CREATE OR REPLACE FUNCTION Cart_count_limits() RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION Cart_count_limits() 
+RETURNS TRIGGER AS $$
 DECLARE 
     cart_Counter INT;
-    user_Type    BOOLEAN; 
-
+    is_vip BOOLEAN;
 BEGIN
     SELECT COUNT(*) INTO cart_Counter
     FROM SHOPPING_CART 
-    WHERE ID = NEW.ID;
+    WHERE Client_ID = NEW.Client_ID;
 
-    SELECT EXISTS (SELECT 1 FROM VIP_CLIENT WHERE ID = NEW.ID) INTO user_Type;
+    SELECT is_vip INTO is_vip 
+    FROM CLIENT 
+    WHERE ID = NEW.Client_ID;
 
-    IF user_Type AND cart_Counter >= 5 THEN 
-        RAISE EXCEPTION 'CAN NOT REQUEST MORE THAN FIVE CARTS AS A VIP USER';
-
-    ELSIF NOT user_Type AND cart_Counter >= 1 THEN 
-        RAISE EXCEPTION 'CAN NOT REQUEST MORE THAN 1 CART AS A REGULAR USER';
+    IF is_vip AND cart_Counter >= 5 THEN 
+        RAISE EXCEPTION 'VIP USERS HAS LIMITS OF ONLY 5 CARTS !';
+    ELSIF NOT is_vip AND cart_Counter >= 1 THEN 
+        RAISE EXCEPTION 'CIP USERS HAS LIMITS OF ONLY 1 CART !' ;
     END IF;
 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER cart_limtter_trigger
+CREATE TRIGGER cart_limit_trigger
 BEFORE INSERT ON SHOPPING_CART
 FOR EACH ROW 
 EXECUTE FUNCTION Cart_count_limits();
-
 
 -- Users Cannot Add Out-of-Stock Products to Their Shopping Cart
 CREATE OR REPLACE FUNCTION Prevent_Out_stock() RETURNS TRIGGER AS $$
 DECLARE
     quantity INT;
-
 BEGIN 
-    -- TG_OP is PSQL internal function that tells us which operationg is calling the trigger 
-    IF NEW.Product_ID IS DISTINCT FROM OLD.Product_ID OR TG_OP = 'INSERT' THEN
-    
     SELECT stock_count INTO quantity
     FROM PRODUCTS
-    WHERE ID = NEW.ID;
+    WHERE ID = NEW.Product_ID;
     
-        IF quantity <= 0 THEN 
-            RAISE EXCEPTION 'ITEMS THAT ARE OUT OF STOCK CANT TAKE ANY ACTIONS TILL REFILL';
-        END IF;
+    IF quantity <= 0 THEN 
+        RAISE EXCEPTION 'Items that are out of stock cannot be added to the cart!';
     END IF;
-        RETURN NEW;
 
-    END;
-$$ 
-LANGUAGE plpgsql;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER stock_controller
 BEFORE INSERT OR UPDATE ON ADDED_TO
@@ -615,12 +546,13 @@ DECLARE
     discount_type       VARCHAR(10);
     max_discount        BIGINT := 5000000;
 BEGIN
-    SELECT discount_code.Amount, discount_code.discount_type INTO discount_amount, discount_type
+    SELECT Amount, discount_type INTO discount_amount, discount_type
     FROM DISCOUNT_CODE
     WHERE Code = NEW.Code;
 
-    SELECT SUM(P.current_price) INTO cart_total
-    FROM ADDED_TO A JOIN PRODUCTS P ON A.Product_ID = P.ID
+    SELECT SUM(P.current_price * A.Quantity) INTO cart_total
+    FROM ADDED_TO A 
+    JOIN PRODUCTS P ON A.Product_ID = P.ID
     WHERE A.Cart_number = NEW.Cart_number;
 
     IF discount_type = 'percentage' THEN
@@ -632,7 +564,7 @@ BEGIN
 
     ELSIF discount_type = 'fixed' THEN
         IF discount_amount > cart_total THEN
-            RAISE EXCEPTION 'Fixed Discount Cannot Be More Than Total Amount Of Cart!';
+            RAISE EXCEPTION 'Fixed discount cannot be more than the total amount of the cart!';
         END IF;
     END IF;
 
@@ -645,11 +577,6 @@ CREATE TRIGGER Check_discount_mode
 BEFORE INSERT ON APPLIED_TO
 FOR EACH ROW 
 EXECUTE FUNCTION Amount_Percentage_ceil();
-
-INSERT INTO ADDED_TO (ID, Product_ID, Cart_number, Locked_number)
-VALUES (1, 1, 'CART123456789', 'LOCK123');
-
-
 
 
 -- Limit Discount Code Usage per User
@@ -728,4 +655,164 @@ AFTER INSERT OR UPDATE ON TRANSACTION
 FOR EACH ROW
 EXECUTE FUNCTION unlocked_after_payment();
 
+/* After 3 Days the Products will return */
+CREATE OR REPLACE FUNCTION Restore_Stock_Block_Cart()
+RETURNS VOID AS $$
+BEGIN
+    UPDATE PRODUCTS
+    SET stock_count = stock_count + A.quantity
+    FROM (
+        SELECT Product_ID, COUNT(*) AS quantity
+        FROM ADDED_TO
+        WHERE Cart_ID IN (
+            SELECT ID
+            FROM SHOPPING_CART
+            WHERE STATUS = 'locked'
+              AND Time_stamp < NOW() - INTERVAL '3 DAYS'
+        )
+        GROUP BY Product_ID
+    ) AS A
+    WHERE PRODUCTS.id = A.Product_ID;
 
+    UPDATE SHOPPING_CART
+    SET 
+        STATUS = 'blocked',
+        Blocked_until = NOW() + INTERVAL '7 DAYS'
+    WHERE STATUS = 'locked'
+      AND Time_stamp < NOW() - INTERVAL '3 DAYS';
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT cron.schedule(
+    'restore_stock_job', --task
+    '0 0 * * *', -- scedual time to check every day
+    $$CALL Restore_Stock_Block_Cart()$$
+);
+
+/* claculates the level and the amount of dicount by refaring */
+CREATE OR REPLACE FUNCTION Calc_Referal_DISCOUNT(new_user_id INT, referrer_id INT) 
+RETURNS VOID AS $$
+DECLARE
+    current_id          INT;
+    current_level       INT := 1;
+    discount_percentage FLOAT;
+    discount_amount     BIGINT;
+    discount_code_id    INT;  
+BEGIN
+    current_id := referrer_id;
+    
+    WHILE current_id IS NOT NULL LOOP
+        IF new_user_id = current_id THEN 
+            RAISE EXCEPTION 'YOU CANT REFAER YOURSELF ! ';
+        END IF;
+        discount_percentage := 50 / (2 ^ (current_level - 1));
+
+        IF discount_percentage < 1 THEN 
+            discount_amount := 50000;
+        ELSE 
+            discount_amount := (1000000 * discount_percentage) / 100;
+        END IF;
+
+        INSERT INTO DISCOUNT_CODE (Amount, Usage_Limit, Expiration_date)
+        VALUES (
+            discount_amount,
+            1, 
+            CURRENT_TIMESTAMP + INTERVAL '7 DAYS'
+        )
+        RETURNING Code INTO discount_code_id;
+
+        INSERT INTO PRIVATE_CODE (Code, Client_ID)
+        VALUES (discount_code_id, current_id);
+
+        SELECT Referral_Referrer INTO current_id 
+        FROM CLIENT 
+        WHERE ID = current_id;
+
+
+        EXIT WHEN current_id IS NULL;
+        current_level := current_level + 1;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+/* checks if the subscription ended or not */
+CREATE OR REPLACE FUNCTION Check_VIP_Expiration()
+RETURNS VOID AS $$
+BEGIN
+    DELETE FROM VIP_CLIENT
+    WHERE Subscription_expiration_time < NOW();
+
+    UPDATE CLIENT
+    SET is_vip = FALSE
+    WHERE ID IN (
+        SELECT ID
+        FROM VIP_CLIENT
+        WHERE Subscription_expiration_time < NOW()
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT cron.schedule(
+    'check_vip_expiration', --do this 
+    '0 0 * * *', --everyday at 00:00
+    $$CALL Check_VIP_Expiration()$$
+);
+
+
+/* dissabling 4 carts after subscription has expired */
+CREATE OR REPLACE FUNCTION Disable_Extra_Carts()
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM SHOPPING_CART
+    WHERE Client_ID = OLD.ID
+      AND ID NOT IN (
+          SELECT ID
+          FROM SHOPPING_CART
+          WHERE Client_ID = OLD.ID
+          ORDER BY Time_stamp
+          LIMIT 1
+      );
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER Remove_Extra_Carts
+AFTER DELETE ON VIP_CLIENT
+FOR EACH ROW
+EXECUTE FUNCTION Disable_Extra_Carts();
+
+CREATE OR REPLACE FUNCTION Monthly_15Percent_Refund()
+RETURNS VOID AS $$
+BEGIN
+    UPDATE CLIENT C
+    SET Wallet_balance = Wallet_balance + refund_data.refund_amount
+    FROM (
+        SELECT 
+            S.Client_ID,
+            SUM(P.current_price * A.Quantity * 0.15) AS refund_amount
+        FROM 
+            TRANSACTION T
+        JOIN ISSUED_FOR I ON T.Tracking_code = I.Tracking_code
+        JOIN SHOPPING_CART S ON I.Cart_number = S.Number
+        JOIN ADDED_TO A ON S.Number = A.Cart_number
+        JOIN PRODUCTS P ON A.Product_ID = P.ID
+        WHERE 
+            T.STATUS = 'Successful'
+            AND T.Timestamp >= DATE_TRUNC('MONTH', CURRENT_DATE - INTERVAL '1 MONTH')
+            AND T.Timestamp < DATE_TRUNC('MONTH', CURRENT_DATE)
+        GROUP BY S.Client_ID
+    ) AS refund_data
+    WHERE C.ID = refund_data.Client_ID;
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT cron.schedule(
+    'monthly_refund', 
+    '0 0 1 * *', -- First day of Every month
+    $$CALL Monthly_15Percent_Refund()$$
+);
+
+/* scedualed functions checks by this  */
+-- SELECT * FROM cron.job_run_details;
+-- to run each file 
+-- psql -U UserName -d DBName -a -f file name.sql 

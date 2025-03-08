@@ -13,5 +13,4 @@ urlpatterns = [
     path('compatibility/psu/<int:power_supply_id>/', views.power_supply_compatibility),
     path('compatibility/case/<int:case_id>/', views.case_compatibility),
     path('compatibility/storage/<str:storage_type>/<int:storage_id>/', views.storage_compatibility)
-
 ]
