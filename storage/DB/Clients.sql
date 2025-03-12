@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS CLIENT(
     Wallet_balance BIGINT CHECK(Wallet_balance >= 0) DEFAULT 0,
     Time_stamp     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     Referal_code   VARCHAR(10) UNIQUE,
-    is_vip         BOOLEAN DEFAULT FALSE,
+    is_vip         BOOLEAN DEFAULT FALSE
 );
 
 

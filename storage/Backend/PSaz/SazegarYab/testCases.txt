@@ -1,0 +1,85 @@
+Test Case 1: Valid Full Setup
+{
+    "components": [
+      {"category": "CPU", "id": 5},
+      {"category": "GPU", "id": 2},
+      {"category": "Motherboard", "id": 4},
+      {"category": "RAM Stick", "id": 6},
+      {"category": "SSD", "id": 3},
+      {"category": "Power Supply", "id": 7}
+    ]
+  }
+  
+
+Test Case 2: Missing RAM Stick
+{
+"components": [
+    {"category": "CPU", "id": 5},
+    {"category": "GPU", "id": 2},
+    {"category": "Motherboard", "id": 4},
+    {"category": "SSD", "id": 3},
+    {"category": "Power Supply", "id": 7}
+]
+}
+  
+
+Test Case 3: Different CPU & Motherboard
+{
+"components": [
+    {"category": "CPU", "id": 999},  
+    {"category": "GPU", "id": 2},
+    {"category": "Motherboard", "id": 4},
+    {"category": "RAM Stick", "id": 6},
+    {"category": "SSD", "id": 3},
+    {"category": "Power Supply", "id": 7}
+]
+}
+
+
+Test Case 4: Compatible Components but Missing Power Supply 
+{
+    "components": [
+      {"category": "CPU", "id": 5},
+      {"category": "GPU", "id": 2},
+      {"category": "Motherboard", "id": 4},
+      {"category": "RAM Stick", "id": 6},
+      {"category": "SSD", "id": 3}
+    ]
+  }
+
+
+Test Case 5: Only Motherboard with No Components 
+{
+    "components": [
+      {"category": "Motherboard", "id": 4}
+    ]
+  }
+
+
+
+Test Case 6: Adding an Extra Component That Might Not Exist
+{
+"components": [
+    {"category": "CPU", "id": 5},
+    {"category": "GPU", "id": 2},
+    {"category": "Motherboard", "id": 4},
+    {"category": "RAM Stick", "id": 6},
+    {"category": "SSD", "id": 3},
+    {"category": "Power Supply", "id": 7},
+    {"category": "Cooling System", "id": 50}
+]
+}
+
+
+Test Case 7: Everything Random (Likely to be Incompatible)
+{
+    "components": [
+      {"category": "CPU", "id": 10},
+      {"category": "GPU", "id": 11},
+      {"category": "Motherboard", "id": 12},
+      {"category": "RAM Stick", "id": 13},
+      {"category": "SSD", "id": 14},
+      {"category": "Power Supply", "id": 15}
+    ]
+  }
+  

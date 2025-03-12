@@ -1,19 +1,19 @@
 CREATE TABLE IF NOT EXISTS PRODUCTS (
-    id Serial PRIMARY KEY,
-    category CHAR(255),
-    image BYTEA,
-    current_price INT CHECK (current_price > 0),
-    stock_count INT CHECK (stock_count >= 0),
-    brand VARCHAR(255),
-    model VARCHAR(255)
+    id            Serial PRIMARY KEY,
+    category      CHAR(255),
+    image         BYTEA,
+    current_price BIGINT CHECK (current_price > 0),
+    stock_count   INT CHECK (stock_count >= 0),
+    brand         VARCHAR(255),
+    model         VARCHAR(255)
 );
 
-INSERT into PRODUCTS (category, current_price, stock_count, brand, model)
-VALUES ("HDD", 3, 1, "asus", )
+-- INSERT into PRODUCTS (category, current_price, stock_count, brand, model)
+-- VALUES ("HDD", 3, 1, "asus", )
 
 
-INSERT INTO PRODUCTS(category, current_price, stock_count, brand, model) 
-VALUES ("TEST", )
+-- INSERT INTO PRODUCTS(category, current_price, stock_count, brand, model) 
+-- VALUES ("TEST", )
 
 
 CREATE TABLE IF NOT EXISTS HDD (
@@ -28,8 +28,10 @@ CREATE TABLE IF NOT EXISTS HDD (
 );
 
 
+
+
 CREATE TABLE IF NOT EXISTS CASE_TABLE (
-    id BIGINT PRIMARY KEY,
+    id int PRIMARY KEY,
     number_of_fans INT CHECK (number_of_fans >= 0),
     fan_size FLOAT CHECK (fan_size >= 0.0),
     wattage INT CHECK (wattage >= 0),
@@ -43,7 +45,7 @@ CREATE TABLE IF NOT EXISTS CASE_TABLE (
 );
 
 CREATE TABLE IF NOT EXISTS POWER_SUPPLY (
-    id BIGINT PRIMARY KEY,
+    id INT PRIMARY KEY,
     supported_wattage INT CHECK (supported_wattage >= 0), 
     depth FLOAT CHECK (depth >= 0.0),
     height FLOAT CHECK (height >= 0.0),
@@ -52,7 +54,7 @@ CREATE TABLE IF NOT EXISTS POWER_SUPPLY (
 );
 
 CREATE TABLE IF NOT EXISTS GPU (
-    id BIGINT PRIMARY KEY,
+    id INT PRIMARY KEY,
     clock_speed INT CHECK (clock_speed >= 0), 
     ram_size INT CHECK (ram_size >= 0),        
     number_of_fans INT CHECK (number_of_fans >= 0), 
@@ -64,38 +66,40 @@ CREATE TABLE IF NOT EXISTS GPU (
 );
 
 CREATE TABLE IF NOT EXISTS SSD (
-    id BIGINT PRIMARY KEY,
+    id INT PRIMARY KEY,
     capacity INT CHECK (capacity >= 0), 
     wattage INT CHECK (wattage >= 0),        
     FOREIGN KEY (id) REFERENCES PRODUCTS(id) ON DELETE CASCADE 
 );
 
 CREATE TABLE IF NOT EXISTS RAM_STICK (
-    id BIGINT PRIMARY KEY,
-    frequency INT CHECK (frequency >= 0), 
-    capacity INT CHECK (capacity >= 0),        
-    generation VARCHAR(20), 
-    wattage INT CHECK (wattage >= 0),         
-    depth FLOAT CHECK (depth >= 0.0),
-    height FLOAT CHECK (height >= 0.0),
-    width FLOAT CHECK (width >= 0.0),
+    id          INT PRIMARY KEY,
+    frequency   INT CHECK (frequency >= 0), 
+    capacity    INT CHECK (capacity >= 0),        
+    generation  VARCHAR(20), 
+    wattage     INT CHECK (wattage >= 0),         
+    depth       FLOAT CHECK (depth >= 0.0),
+    height      FLOAT CHECK (height >= 0.0),
+    width       FLOAT CHECK (width >= 0.0),
+
     FOREIGN KEY (id) REFERENCES PRODUCTS(id) ON DELETE CASCADE 
 );
 
 CREATE TABLE IF NOT EXISTS MOTHERBOARD (
-    id BIGINT PRIMARY KEY,
-    chipset VARCHAR(30), 
-    number_of_memory_slots INT CHECK (number_of_memory_slots >= 0),        
-    memory_speed_range INT CHECK (memory_speed_range >= 0), 
-    wattage INT CHECK (wattage >= 0),         
-    depth FLOAT CHECK (depth >= 0.0),
-    height FLOAT CHECK (height >= 0.0),
-    width FLOAT CHECK (width >= 0.0),
+    id                      INT PRIMARY KEY,
+    chipset                 VARCHAR(30), 
+    number_of_memory_slots  INT CHECK (number_of_memory_slots >= 0),        
+    memory_speed_range      INT CHECK (memory_speed_range >= 0), 
+    wattage                 INT CHECK (wattage >= 0),         
+    depth                   FLOAT CHECK (depth >= 0.0),
+    height                  FLOAT CHECK (height >= 0.0),
+    width                   FLOAT CHECK (width >= 0.0),
+
     FOREIGN KEY (id) REFERENCES PRODUCTS(id) ON DELETE CASCADE 
 );
 
 CREATE TABLE IF NOT EXISTS CPU (
-    id BIGINT PRIMARY KEY,
+    id INT PRIMARY KEY,
     maximum_addressable_memory_limit INT CHECK (maximum_addressable_memory_limit >= 0),
     boost_frequency FLOAT CHECK (boost_frequency > 0.0),
     base_frequency FLOAT CHECK (base_frequency > 0.0),
@@ -108,7 +112,7 @@ CREATE TABLE IF NOT EXISTS CPU (
 );
 
 CREATE TABLE IF NOT EXISTS COOLER (
-    id BIGINT PRIMARY KEY,
+    id INT PRIMARY KEY,
     maximum_rotational_speed INT CHECK (maximum_rotational_speed >= 0),
     wattage INT CHECK (wattage >= 0),
     fan_size FLOAT CHECK (fan_size >= 0.0),
@@ -168,6 +172,6 @@ CREATE TABLE IF NOT EXISTS CC_SOCKET_COMPATIBLE_WITH (
 );
 
 
-ALTER TABLE mc_socket_compatible_with
-alter column Motherboard_id
-alter constraint INT -> BIGINT;
+-- ALTER TABLE mc_socket_compatible_with
+-- alter column Motherboard_id
+-- alter constraint INT -> BIGINT;

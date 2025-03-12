@@ -118,11 +118,11 @@ DECLARE
 BEGIN
     SELECT COUNT(*) INTO cart_Counter
     FROM SHOPPING_CART 
-    WHERE Client_ID = NEW.Client_ID;
+    WHERE ID = NEW.ID;
 
     SELECT is_vip INTO is_vip 
     FROM CLIENT 
-    WHERE ID = NEW.Client_ID;
+    WHERE ID = NEW.ID;
 
     IF is_vip AND cart_Counter >= 5 THEN 
         RAISE EXCEPTION 'VIP USERS HAS LIMITS OF ONLY 5 CARTS !';
